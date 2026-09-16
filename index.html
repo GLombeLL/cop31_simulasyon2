@@ -85,7 +85,7 @@
     </div>
 
     <div class="stats-box">
-      <div>Durum: <span id="statusText" style="color:#4CAF50;">Sistem Hazırlanıyor...</span></div>
+      <div>Durum: <span id="statusText" style="color:#4CAF50;">Sistem Hazır</span></div>
     </div>
   </div>
 
@@ -96,8 +96,6 @@
       "esri/WebScene",
       "esri/views/SceneView"
     ], function(WebScene, SceneView) {
-
-      console.log("Harita yükleniyor...");
 
       const scene = new WebScene({
         portalItem: {
@@ -116,12 +114,8 @@
       const lightVal = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
 
-      // WebScene ve tüm katmanların tam yüklenmesini bekleyelim
       view.when(() => {
-        scene.loadAll().then(() => {
-          console.log("WebScene başarıyla yüklendi!");
-
-          // Tüm katmanlar arasında feature layer tipinde olanı güvenle bulalım
+        scene.when(() => {
           let targetLayer = null;
           scene.allLayers.forEach((layer) => {
             if (layer.type === "feature") {
@@ -130,7 +124,6 @@
           });
 
           if (targetLayer) {
-            console.log("Hedef Katman Bulundu:", targetLayer.title);
             statusText.innerText = "Simülasyon Aktif";
 
             function updateLayerSimulation() {
@@ -138,19 +131,18 @@
               const lVal = parseInt(lightSlider.value);
 
               rehexVal.innerText = rVal;
-              lightVal.innerText = lVal;
+              letVal.innerText = lVal;
 
               const rFactor = 1 - (rVal / 100);
               const lFactor = 1 - (lVal / 100);
 
-              // Katmanın renderer'ını dinamik olarak tetikliyoruz
               targetLayer.renderer = {
                 type: "simple",
                 symbol: {
                   type: "polygon-3d",
                   symbolLayers: [{
                     type: "extrude",
-                    size: `($feature.Risk_Skoru * ${rFactor} * 15) + ($feature.Rehex_Score * ${lFactor} * 10)`,
+                    size: (15 * rFactor) + (10 * lFactor),
                     material: { 
                       color: rVal > 50 || lVal > 50 ? [76, 175, 80, 0.85] : [244, 67, 54, 0.85] 
                     },
@@ -162,17 +154,10 @@
                   }]
                 }
               };
-
-              console.log(`Slider güncellendi -> Rehex: %${rVal}, Işık: %${lVal}`);
             }
 
             rehexSlider.addEventListener("input", updateLayerSimulation);
             lightSlider.addEventListener("input", updateLayerSimulation);
-
-          } else {
-            console.error("HATA: WebScene içerisinde uygun Feature Layer bulunamadı!");
-            statusText.innerText = "Katman Bulunamadı!";
-            statusText.style.color = "#FF5722";
           }
         });
       });
