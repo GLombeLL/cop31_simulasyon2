@@ -85,8 +85,7 @@
     </div>
 
     <div class="stats-box">
-      <div>Simüle Edilen Ortalama Risk: <span id="avgRisk">Aktif</span></div>
-      <div>Durum: <span id="statusText">Normal Akış</span></div>
+      <div>Simüle Edilen Risk Durumu: <span id="statusText" style="color:#4CAF50;">Aktif (Normal)</span></div>
     </div>
   </div>
 
@@ -95,10 +94,10 @@
   <script>
     require([
       "esri/WebScene",
-      "esri/views/SceneView"
-    ], function(WebScene, SceneView) {
+      "esri/views/SceneView",
+      "esri/layers/FeatureLayer"
+    ], function(WebScene, SceneView, FeatureLayer) {
 
-      // Doğru WebScene ID'niz entegre edildi
       const scene = new WebScene({
         portalItem: {
           id: "c624627b97ab408e8becc96792b74d4d"
@@ -116,25 +115,59 @@
       const lightVal = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
 
-      function updateSimulation() {
-        const rVal = rehexSlider.value;
-        const lVal = lightSlider.value;
+      // Sahne yüklendiğinde ana risk katmanını yakalayalım
+      view.when(() => {
+        scene.when(() => {
+          // WebScene içindeki katmanı buluyoruz
+          const layer = scene.layers.find(l => l.type === "feature");
+          
+          if (layer) {
+            function updateLayerSimulation() {
+              const rVal = parseInt(rehexSlider.value);
+              const lVal = parseInt(lightSlider.value);
 
-        rehexVal.innerText = rVal;
-        lightVal.innerText = lVal;
+              rehexVal.innerText = rVal;
+              lightVal.innerText = lVal;
 
-        // Slider değiştikçe arayüz metnini güncelleyerek dinamik hissi veriyoruz
-        if(rVal > 50 || lVal > 50) {
-          statusText.innerText = "Kritik Koruma Devrede!";
-          statusText.style.color = "#4CAF50";
-        } else {
-          statusText.innerText = "Normal Seviye";
-          statusText.style.color = "#FF5722";
-        }
-      }
+              // Çarpanlar hesaplanıyor (Koruma arttıkça risk çarpanı düşer)
+              const rFactor = 1 - (rVal / 100);
+              const lFactor = 1 - (lVal / 100);
 
-      rehexSlider.addEventListener("input", updateSimulation);
-      lightSlider.addEventListener("input", updateSimulation);
+              // ArcGIS Arcade tabanlı dinamik extrusion (sütun boyu) güncellemesi
+              layer.renderer = {
+                type: "simple",
+                symbol: {
+                  type: "polygon-3d",
+                  symbolLayers: [{
+                    type: "extrude",
+                    // Rehex_Score ve Risk_Skoru üzerinden anlık simüle yükseklik hesabı
+                    size: `($feature.Risk_Skoru * ${rFactor} * 15) + ($feature.Rehex_Score * ${lFactor} * 10)`,
+                    material: { 
+                      color: rVal > 50 ? [76, 175, 80, 0.8] : [244, 67, 54, 0.8] // Koruma yüksekse Yeşil, düşükse Kırmızı
+                    },
+                    edges: {
+                      type: "solid",
+                      color: [50, 50, 50, 0.5],
+                      size: 1
+                    }
+                  }]
+                }
+              };
+
+              if(rVal > 50 || lVal > 50) {
+                statusText.innerText = "Optimum Koruma Sağlandı";
+                statusText.style.color = "#4CAF50";
+              } else {
+                statusText.innerText = "Yüksek Tehdit Altında";
+                statusText.style.color = "#FF5722";
+              }
+            }
+
+            rehexSlider.addEventListener("input", updateLayerSimulation);
+            lightSlider.addEventListener("input", updateLayerSimulation);
+          }
+        });
+      });
 
     });
   </script>
