@@ -89,7 +89,7 @@
   <div class="control-panel">
     <h2>COP31 Simülasyon Laboratuvarı</h2>
     
-    <!-- Plaj Filtreleme Menüsü -->
+    <!-- Tekilleştirilmiş Plaj Filtreleme Menüsü -->
     <div class="slider-group">
       <label>Hedef Plaj / Bölge Seçimi:</label>
       <select id="beachSelect">
@@ -161,7 +161,7 @@
             targetLayer.load().then(() => {
               const baseRenderer = targetLayer.renderer.clone();
 
-              // 1. Plaj listesini katmandan dinamik olarak çek ve dropdown'ı doldur
+              // 1. TEKİLLEŞTİRME (Set kullanarak mükerrer plaj isimlerini engelliyoruz)
               const query = targetLayer.createQuery();
               query.where = "1=1";
               query.outFields = ["Plaj_ID", "Plaj_Adi"];
@@ -169,9 +169,11 @@
               query.orderByFields = ["Plaj_Adi"];
 
               targetLayer.queryFeatures(query).then((response) => {
+                const uniqueBeachNames = new Set();
                 response.features.forEach((feature) => {
                   const pAdi = feature.attributes.Plaj_Adi;
-                  if (pAdi) {
+                  if (pAdi && !uniqueBeachNames.has(pAdi)) {
+                    uniqueBeachNames.add(pAdi);
                     const option = document.createElement("option");
                     option.value = pAdi;
                     option.textContent = pAdi;
@@ -180,7 +182,7 @@
                 });
               });
 
-              // 2. Dropdown değişim olayı (Filtreleme + Yumuşak Zoom)
+              // 2. YAKIN VE DİBİNE GİREN ZOOM (Scale küçültüldü, tilt artırıldı)
               beachSelect.addEventListener("change", (e) => {
                 const selectedBeach = e.target.value;
 
@@ -192,10 +194,8 @@
                     }
                   });
                 } else {
-                  // SQL tanım ifadesi ile katmanı filtrele
                   targetLayer.definitionExpression = `Plaj_Adi = '${selectedBeach}'`;
 
-                  // Seçilen plajın geometrisini bul ve oraya uç
                   targetLayer.queryFeatures({
                     where: `Plaj_Adi = '${selectedBeach}'`,
                     returnGeometry: true
@@ -203,8 +203,8 @@
                     if (result.features.length > 0) {
                       view.goTo({
                         target: result.features,
-                        scale: 12000, // Odaklanma yakınlık ölçeği
-                        tilt: 45      // Haritaya şık bir 3D açı verir
+                        scale: 3500, // Katmanın tam dibine giren yakın ölçek
+                        tilt: 65     // Detayları net gösteren 3D açı
                       }, {
                         duration: 1800,
                         easing: "in-out-cubic"
@@ -252,8 +252,9 @@
                 impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
                 impactText.style.borderLeftColor = statusColor;
 
+                // 3. ORİJİNAL RENDERER VE RENKLERİ KORUYAN HASSAS ÖLÇEKLENDİRME
                 let activeRenderer = baseRenderer.clone();
-                const scaleFactor = 1 - (avgProtection / 100) * 0.5;
+                const scaleFactor = 1 - (avgProtection / 100) * 0.4; // Renkleri bozmadan güvenli oran
 
                 activeRenderer.visualVariables = [{
                   type: "size",
