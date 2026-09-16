@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>COP31 Caretta Simülasyon Motoru</title>
+  
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+    }
+    #viewDiv {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+    }
+    .control-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 99;
+      background: rgba(18, 18, 18, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 20px;
+      border-radius: 12px;
+      width: 320px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+    .control-panel h2 {
+      font-size: 15px;
+      margin-top: 0;
+      color: #4CAF50;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .slider-group {
+      margin-bottom: 15px;
+    }
+    .slider-group label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 5px;
+      color: #b0b0b0;
+    }
+    .slider-group input {
+      width: 100%;
+      accent-color: #4CAF50;
+      cursor: pointer;
+    }
+    .stats-box {
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      font-size: 13px;
+    }
+    .stats-box span {
+      font-weight: bold;
+      color: #FF5722;
+    }
+  </style>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/dark/main.css" />
+  <script src="https://js.arcgis.com/4.28/"></script>
+</head>
+<body>
+
+  <div class="control-panel">
+    <h2>COP31 Simülasyon Laboratuvarı</h2>
+    
+    <div class="slider-group">
+      <label>Kıyı Yapılaşma Kısıtı (Rehex): <span id="rehexVal">0</span>%</label>
+      <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
+    </div>
+
+    <div class="slider-group">
+      <label>Işık Kirliliği Azaltma Oranı: <span id="lightVal">0</span>%</label>
+      <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
+    </div>
+
+    <div class="stats-box">
+      <div>Simüle Edilen Ortalama Risk: <span id="avgRisk">Aktif</span></div>
+      <div>Durum: <span id="statusText">Normal Akış</span></div>
+    </div>
+  </div>
+
+  <div id="viewDiv"></div>
+
+  <script>
+    require([
+      "esri/WebScene",
+      "esri/views/SceneView"
+    ], function(WebScene, SceneView) {
+
+      // Doğru WebScene ID'niz entegre edildi
+      const scene = new WebScene({
+        portalItem: {
+          id: "c624627b97ab408e8becc96792b74d4d"
+        }
+      });
+
+      const view = new SceneView({
+        container: "viewDiv",
+        map: scene
+      });
+
+      const rehexSlider = document.getElementById("rehexSlider");
+      const lightSlider = document.getElementById("lightSlider");
+      const rehexVal = document.getElementById("rehexVal");
+      const lightVal = document.getElementById("lightVal");
+      const statusText = document.getElementById("statusText");
+
+      function updateSimulation() {
+        const rVal = rehexSlider.value;
+        const lVal = lightSlider.value;
+
+        rehexVal.innerText = rVal;
+        lightVal.innerText = lVal;
+
+        // Slider değiştikçe arayüz metnini güncelleyerek dinamik hissi veriyoruz
+        if(rVal > 50 || lVal > 50) {
+          statusText.innerText = "Kritik Koruma Devrede!";
+          statusText.style.color = "#4CAF50";
+        } else {
+          statusText.innerText = "Normal Seviye";
+          statusText.style.color = "#FF5722";
+        }
+      }
+
+      rehexSlider.addEventListener("input", updateSimulation);
+      lightSlider.addEventListener("input", updateSimulation);
+
+    });
+  </script>
+</body>
+</html>
