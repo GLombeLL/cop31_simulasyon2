@@ -72,7 +72,48 @@
       <div>Durum: <span id="statusText" style="color: #ef5350;">Kritik Tehdit Altında</span></div>
       <div class="impact-metrics" id="impactText">
         🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
+        /* Şov Efekti için Kutlama Paneli */
+    #celebrationOverlay {
+      position: absolute;
+      bottom: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(46, 125, 50, 0.95);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      padding: 15px 30px;
+      border-radius: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      z-index: 1000;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 1px solid rgba(255,255,255,0.3);
+      pointer-events: none;
+    }
+    #celebrationOverlay.show {
+      bottom: 30px;
+    }
+    #celebrationOverlay span {
+      font-size: 24px;
+      animation: bounce 1s infinite alternate;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-5px); }
+    }
       </div>
+    </div>
+  </div>
+  <!-- Tebrik / Şov Katmanı -->
+  <div id="celebrationOverlay">
+    <span>🐢</span>
+    <div>
+      <div>Tebrikler! COP31 Hedeflerine Ulaşıldı!</div>
+      <div style="font-size: 11px; font-weight: 400; color: #c8e6c9;">Güvenli habitat sağlandı, carettalar denize ulaşıyor. Teşekkürler!</div>
     </div>
   </div>
 
@@ -256,6 +297,13 @@
                   tilt: OVERVIEW_TILT,
                   heading: OVERVIEW_HEADING
                 }, { duration: OVERVIEW_DURATION, easing: ZOOM_EASING });
+                // --- ŞOV EFEKTİ KONTROLÜ (%100 Koruma) ---
+              const overlay = document.getElementById("celebrationOverlay");
+              if (rVal === 100 && lVal === 100) {
+                overlay.classList.add("show");
+              } else {
+                overlay.classList.remove("show");
+              }
                 return;
               }
 
