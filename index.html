@@ -26,13 +26,13 @@
       top: 20px;
       left: 20px;
       z-index: 99;
-      background: rgba(18, 18, 18, 0.9);
+      background: rgba(18, 18, 18, 0.92);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.15);
       padding: 20px;
       border-radius: 12px;
       width: 340px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
     .control-panel h2 {
       font-size: 15px;
@@ -68,8 +68,8 @@
       padding: 10px;
       border-radius: 8px;
       font-size: 12px;
-      border-left: 3px solid #4CAF50;
-      transition: border-color 0.3s ease;
+      border-left: 3px solid #ef5350;
+      transition: all 0.3s ease;
     }
   </style>
 
@@ -92,9 +92,9 @@
     </div>
 
     <div class="stats-box">
-      <div>Durum: <span id="statusText">Simülasyon Aktif</span></div>
+      <div>Durum: <span id="statusText" style="color: #ef5350;">Kritik Tehdit Altında</span></div>
       <div class="impact-metrics" id="impactText">
-        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Baz Seviye)
+        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
       </div>
     </div>
   </div>
@@ -125,11 +125,10 @@
       const statusText = document.getElementById("statusText");
       const impactText = document.getElementById("impactText");
 
-      // Değere göre Kırmızı -> Sarı -> Yeşil renk üreten yardımcı fonksiyon
       function getDynamicColor(val) {
-        if (val < 35) return "#F44336"; // Kırmızı (Riskli)
-        if (val < 75) return "#FF9800"; // Turuncu/Sarı (Dengeli)
-        return "#4CAF50";              // Yeşil (İdeal)
+        if (val < 35) return "#ef5350"; 
+        if (val < 75) return "#ffa726"; 
+        return "#66bb6a";              
       }
 
       view.when(() => {
@@ -142,70 +141,69 @@
           });
 
           if (targetLayer) {
-            function updateLayerSimulation() {
-              const rVal = parseInt(rehexSlider.value);
-              const lVal = parseInt(lightSlider.value);
+            targetLayer.load().then(() => {
+              // ArcGIS Pro'dan gelen orijinal renderer yapısını klonluyoruz
+              const baseRenderer = targetLayer.renderer.clone();
 
-              rehexValDisplay.innerText = rVal;
-              lightValDisplay.innerText = lVal;
+              function updateLayerSimulation() {
+                const rVal = parseInt(rehexSlider.value);
+                const lVal = parseInt(lightSlider.value);
 
-              // Slider renklerini değere göre dinamik güncelle
-              rehexSlider.style.accentColor = getDynamicColor(rVal);
-              lightSlider.style.accentColor = getDynamicColor(lVal);
+                rehexValDisplay.innerText = rVal;
+                lightValDisplay.innerText = lVal;
 
-              const rFactor = 1 - (rVal / 100);
-              const lFactor = 1 - (lVal / 100);
+                rehexSlider.style.accentColor = getDynamicColor(rVal);
+                lightSlider.style.accentColor = getDynamicColor(lVal);
 
-              const savedHatchlings = Math.round(120 + ((rVal * 15) + (lVal * 12)));
-              const efficiencyRate = Math.round((rVal + lVal) / 2);
+                const avgProtection = (rVal + lVal) / 2;
+                const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
 
-              let statusHTML = "";
-              let statusColor = "#4CAF50";
+                let statusHTML = "";
+                let statusColor = "#ef5350";
 
-              if (rVal === 0 && lVal === 0) {
-                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama baskı altında.";
-                statusColor = "#F44336";
-              } else if (rVal <= 30 && lVal <= 30) {
-                statusHTML = "📉 <b>Düşük Koruma:</b> Kayıplar yüksek.";
-                statusColor = "#FF9800";
-              } else if (rVal <= 60 && lVal <= 60) {
-                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme.";
-                statusColor = "#FFEB3B";
-              } else if (rVal < 90 || lVal < 90) {
-                statusHTML = "🌿 <b>Yüksek Koruma:</b> Başarı artıyor.";
-                statusColor = "#8BC34A";
-              } else {
-                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedefine Uyum!";
-                statusColor = "#4CAF50";
+                if (rVal === 0 && lVal === 0) {
+                  statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
+                  statusColor = "#ef5350";
+                } else if (avgProtection <= 30) {
+                  statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
+                  statusColor = "#ffa726";
+                } else if (avgProtection <= 70) {
+                  statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
+                  statusColor = "#ffee58";
+                } else if (avgProtection < 95) {
+                  statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
+                  statusColor = "#9ccc65";
+                } else {
+                  statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
+                  statusColor = "#66bb6a";
+                }
+
+                statusText.innerHTML = statusHTML;
+                statusText.style.color = statusColor;
+                impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
+                impactText.style.borderLeftColor = statusColor;
+
+                // PRO RENDERER'INI EZMEDEN, SADECE BOYUTU (EXTRUSION) GÜNCELLİYORUZ:
+                let activeRenderer = baseRenderer.clone();
+                const scaleFactor = 1 - (avgProtection / 100) * 0.5; // Koruma arttıkça yükseklik orantılı iner
+
+                // Visual Variables (Görsel Değişkenler) ekleyerek orijinal renkleri koruyoruz
+                activeRenderer.visualVariables = [{
+                  type: "size",
+                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
+                  target: "extrusion",
+                  unit: "meters"
+                }];
+
+                targetLayer.renderer = activeRenderer;
               }
 
-              statusText.innerHTML = statusHTML;
-              statusText.style.color = statusColor;
-              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${efficiencyRate})`;
-              impactText.style.borderLeftColor = statusColor;
+              updateLayerGIS = updateLayerSimulation;
+              updateLayerSimulation();
 
-              targetLayer.renderer = {
-                type: "simple",
-                symbol: {
-                  type: "polygon-3d",
-                  symbolLayers: [{
-                    type: "extrude",
-                    size: (15 * rFactor) + (10 * lFactor),
-                    material: { 
-                      color: rVal > 50 || lVal > 50 ? [76, 175, 80, 0.85] : [244, 67, 54, 0.85] 
-                    },
-                    edges: {
-                      type: "solid",
-                      color: [30, 30, 30, 0.4],
-                      size: 1
-                    }
-                  }]
-                }
-              };
-            }
-
-            rehexSlider.addEventListener("input", updateLayerSimulation);
-            lightSlider.addEventListener("input", updateLayerSimulation);
+              rehexSlider.addEventListener("input", updateLayerSimulation);
+              lightSlider.addEventListener("input", updateLayerSimulation);
+            });
           }
         });
       });
