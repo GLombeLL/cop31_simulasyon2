@@ -112,8 +112,8 @@
 
       const rehexSlider = document.getElementById("rehexSlider");
       const lightSlider = document.getElementById("lightSlider");
-      const rehexVal = document.getElementById("rehexVal");
-      const lightVal = document.getElementById("lightVal");
+      const rehexValDisplay = document.getElementById("rehexVal");
+      const lightValDisplay = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
 
       view.when(() => {
@@ -130,8 +130,8 @@
               const rVal = parseInt(rehexSlider.value);
               const lVal = parseInt(lightSlider.value);
 
-              rehexVal.innerText = rVal;
-              lightVal.innerText = lVal; // Hata veren kısım düzeltildi
+              rehexValDisplay.innerText = rVal;
+              lightValDisplay.innerText = lVal;
 
               const rFactor = 1 - (rVal / 100);
               const lFactor = 1 - (lVal / 100);
