@@ -120,8 +120,9 @@
   <script>
     require([
       "esri/WebScene",
-      "esri/views/SceneView"
-    ], function(WebScene, SceneView) {
+      "esri/views/SceneView",
+      "esri/geometry/geometryEngine"
+    ], function(WebScene, SceneView, geometryEngine) {
 
       const scene = new WebScene({
         portalItem: {
@@ -159,9 +160,7 @@
 
           if (targetLayer) {
             targetLayer.load().then(() => {
-              const baseRenderer = targetLayer.renderer.clone();
-
-              // 1. TEKİLLEŞTİRME (Set kullanarak mükerrer plaj isimlerini engelliyoruz)
+              // 1. TEKİLLEŞTİRME (Set kullanarak menüdeki mükerrer kayıtları engelliyoruz)
               const query = targetLayer.createQuery();
               query.where = "1=1";
               query.outFields = ["Plaj_ID", "Plaj_Adi"];
@@ -182,7 +181,7 @@
                 });
               });
 
-              // 2. YAKIN VE DİBİNE GİREN ZOOM (Scale küçültüldü, tilt artırıldı)
+              // 2. YAKIN VE MERKEZLENDİRİLMİŞ ZOOM (Denizi ortada bırakmayan akıllı kamera)
               beachSelect.addEventListener("change", (e) => {
                 const selectedBeach = e.target.value;
 
@@ -201,10 +200,14 @@
                     returnGeometry: true
                   }).then((result) => {
                     if (result.features.length > 0) {
+                      const geometries = result.features.map(f => f.geometry);
+                      const unionGeometry = geometryEngine.union(geometries);
+                      const centerPoint = unionGeometry ? unionGeometry.centroid : result.features[0].geometry.centroid;
+
                       view.goTo({
-                        target: result.features,
-                        scale: 3500, // Katmanın tam dibine giren yakın ölçek
-                        tilt: 65     // Detayları net gösteren 3D açı
+                        target: centerPoint,
+                        scale: 2500, // Katmanın dibine giren yakın mesafe
+                        tilt: 70     // Detayları net gösteren 3D açı
                       }, {
                         duration: 1800,
                         easing: "in-out-cubic"
@@ -252,18 +255,32 @@
                 impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
                 impactText.style.borderLeftColor = statusColor;
 
-                // 3. ORİJİNAL RENDERER VE RENKLERİ KORUYAN HASSAS ÖLÇEKLENDİRME
-                let activeRenderer = baseRenderer.clone();
-                const scaleFactor = 1 - (avgProtection / 100) * 0.4; // Renkleri bozmadan güvenli oran
+                // 3. SAHİL POLİGONLARI İÇİN KIRMIZIDAN YEŞİLE DÖNÜŞEN RENDERER & DÜZGÜN BOYUT
+                // Koruma arttıkça renk Kırmızı (244,67,54) -> Sarı/Turuncu -> Yeşil (76,175,80) evrilir.
+                let red = Math.round(244 - (avgProtection / 100) * (244 - 76));
+                let green = Math.round(67 + (avgProtection / 100) * (175 - 67));
+                let blue = Math.round(54 + (avgProtection / 100) * (80 - 54));
+                const dynamicPolygonColor = [red, green, blue, 0.85];
 
-                activeRenderer.visualVariables = [{
-                  type: "size",
-                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
-                  target: "extrusion",
-                  unit: "meters"
-                }];
+                // Boyutun aşırı küçülmesini engellemek için güvenli ve dolgun ölçek faktörü
+                const scaleFactor = 0.85 + (avgProtection / 100) * 0.15;
 
-                targetLayer.renderer = activeRenderer;
+                targetLayer.renderer = {
+                  type: "simple",
+                  symbol: {
+                    type: "polygon-3d",
+                    symbolLayers: [{
+                      type: "extrude",
+                      size: `$feature.Risk_Skoru * ${scaleFactor}`,
+                      material: { color: dynamicPolygonColor },
+                      edges: {
+                        type: "solid",
+                        color: [30, 30, 30, 0.4],
+                        size: 1
+                      }
+                    }]
+                  }
+                };
               }
 
               updateLayerSimulation();
