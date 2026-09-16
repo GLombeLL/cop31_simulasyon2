@@ -85,7 +85,7 @@
     </div>
 
     <div class="stats-box">
-      <div>Simüle Edilen Risk Durumu: <span id="statusText" style="color:#4CAF50;">Aktif (Normal)</span></div>
+      <div>Durum: <span id="statusText" style="color:#4CAF50;">Sistem Hazırlanıyor...</span></div>
     </div>
   </div>
 
@@ -94,9 +94,10 @@
   <script>
     require([
       "esri/WebScene",
-      "esri/views/SceneView",
-      "esri/layers/FeatureLayer"
-    ], function(WebScene, SceneView, FeatureLayer) {
+      "esri/views/SceneView"
+    ], function(WebScene, SceneView) {
+
+      console.log("Harita yükleniyor...");
 
       const scene = new WebScene({
         portalItem: {
@@ -115,95 +116,68 @@
       const lightVal = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
 
-      // Sahne yüklendiğinde ana risk katmanını yakalayalım
-     view.when(() => {
-  console.log("✅ View yüklendi");
-  scene.when(() => {
-    console.log("✅ Scene yüklendi. Katmanlar:", scene.layers.items.map(l => ({ title: l.title, type: l.type })));
+      // WebScene ve tüm katmanların tam yüklenmesini bekleyelim
+      view.when(() => {
+        scene.loadAll().then(() => {
+          console.log("WebScene başarıyla yüklendi!");
 
-    const layer = scene.layers.find(l => l.type === "feature");
+          // Tüm katmanlar arasında feature layer tipinde olanı güvenle bulalım
+          let targetLayer = null;
+          scene.allLayers.forEach((layer) => {
+            if (layer.type === "feature") {
+              targetLayer = layer;
+            }
+          });
 
-    if (!layer) {
-      console.error("❌ 'feature' tipinde katman bulunamadı! Yukarıdaki listeye bakıp gerçek type değerini kontrol edin.");
-      return;
-    }
+          if (targetLayer) {
+            console.log("Hedef Katman Bulundu:", targetLayer.title);
+            statusText.innerText = "Simülasyon Aktif";
 
-    console.log("✅ Katman bulundu:", layer.title);
+            function updateLayerSimulation() {
+              const rVal = parseInt(rehexSlider.value);
+              const lVal = parseInt(lightSlider.value);
 
-    // Gerçek alan adlarını doğrulamak için:
-    layer.load().then(() => {
-      console.log("📋 Gerçek alan adları:", layer.fields.map(f => f.name));
-    });
+              rehexVal.innerText = rVal;
+              lightVal.innerText = lVal;
 
-    function updateLayerSimulation() {
-      const rVal = parseInt(rehexSlider.value);
-      const lVal = parseInt(lightSlider.value);
-      console.log("🎚️ Slider tetiklendi:", rVal, lVal);
+              const rFactor = 1 - (rVal / 100);
+              const lFactor = 1 - (lVal / 100);
 
-      rehexVal.innerText = rVal;
-      lightVal.innerText = lVal;
+              // Katmanın renderer'ını dinamik olarak tetikliyoruz
+              targetLayer.renderer = {
+                type: "simple",
+                symbol: {
+                  type: "polygon-3d",
+                  symbolLayers: [{
+                    type: "extrude",
+                    size: `($feature.Risk_Skoru * ${rFactor} * 15) + ($feature.Rehex_Score * ${lFactor} * 10)`,
+                    material: { 
+                      color: rVal > 50 || lVal > 50 ? [76, 175, 80, 0.85] : [244, 67, 54, 0.85] 
+                    },
+                    edges: {
+                      type: "solid",
+                      color: [30, 30, 30, 0.4],
+                      size: 1
+                    }
+                  }]
+                }
+              };
 
-      const rFactor = 1 - (rVal / 100);
-      const lFactor = 1 - (lVal / 100);
-
-      layer.renderer = {
-        type: "simple",
-        symbol: {
-          type: "polygon-3d",
-          symbolLayers: [{
-            type: "extrude",
-            // ⚠️ Alan adlarını 📋 loguna göre burada düzeltin
-            size: `($feature.Kiyi_Baski_Endeksi_v2 * ${rFactor} * 15) + ($feature.Kiyi_Baski_Endeksi_v2 * ${lFactor} * 10)`,
-            material: { color: rVal > 50 ? [76, 175, 80, 0.8] : [244, 67, 54, 0.8] },
-            edges: { type: "solid", color: [50, 50, 50, 0.5], size: 1 }
-          }]
-        }
-      };
-
-      statusText.innerText = (rVal > 50 || lVal > 50) ? "Optimum Koruma Sağlandı" : "Yüksek Tehdit Altında";
-      statusText.style.color = (rVal > 50 || lVal > 50) ? "#4CAF50" : "#FF5722";
-    }
-
-    rehexSlider.addEventListener("input", updateLayerSimulation);
-    lightSlider.addEventListener("input", updateLayerSimulation);
-    updateLayerSimulation(); // sayfa açılır açılmaz bir kere çalıştır, ilk durumu görmek için
-  });
-});
-
-              if(rVal > 50 || lVal > 50) {
-                statusText.innerText = "Optimum Koruma Sağlandı";
-                statusText.style.color = "#4CAF50";
-              } else {
-                statusText.innerText = "Yüksek Tehdit Altında";
-                statusText.style.color = "#FF5722";
-              }
+              console.log(`Slider güncellendi -> Rehex: %${rVal}, Işık: %${lVal}`);
             }
 
             rehexSlider.addEventListener("input", updateLayerSimulation);
             lightSlider.addEventListener("input", updateLayerSimulation);
-          }
-        });
-      });
 
-    });if(rVal > 50 || lVal > 50) {
-                statusText.innerText = "Optimum Koruma Sağlandı";
-                statusText.style.color = "#4CAF50";
-              } else {
-                statusText.innerText = "Yüksek Tehdit Altında";
-                statusText.style.color = "#FF5722";
-              }
-            }
-
-            rehexSlider.addEventListener("input", updateLayerSimulation);
-            lightSlider.addEventListener("input", updateLayerSimulation);
+          } else {
+            console.error("HATA: WebScene içerisinde uygun Feature Layer bulunamadı!");
+            statusText.innerText = "Katman Bulunamadı!";
+            statusText.style.color = "#FF5722";
           }
         });
       });
 
     });
-  </script>
-</body>
-</html>
   </script>
 </body>
 </html>
