@@ -194,26 +194,13 @@
               let activeRenderer = baseRenderer.clone();
               const scaleFactor = 1 - (avgProtection / 100) * 0.5; // Koruma arttıkça yükseklik orantılı iner
 
-              // Visual Variables: yükseklik (size) hiç değişmedi, sadece rengi (color) ekledik
-              activeRenderer.visualVariables = [
-                {
-                  type: "size",
-                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
-                  target: "extrusion",
-                  unit: "meters"
-                },
-                {
-                  type: "color",
-                  valueExpression: `${avgProtection}`,
-                  stops: [
-                    { value: 0,   color: [239, 83, 80]  },  // kırmızı — kritik tehdit
-                    { value: 25,  color: [255, 112, 67] },  // kırmızı-turuncu — düşük koruma
-                    { value: 50,  color: [255, 167, 38] },  // turuncu — dengeli senaryo
-                    { value: 75,  color: [205, 220, 57] },  // sarı-yeşil — yüksek koruma
-                    { value: 100, color: [102, 187, 106] }  // yeşil — ideal ekosistem
-                  ]
-                }
-              ];
+              // Visual Variables (Görsel Değişkenler) ekleyerek orijinal renkleri koruyoruz
+              activeRenderer.visualVariables = [{
+                type: "size",
+                valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
+                target: "extrusion",
+                unit: "meters"
+              }];
               targetLayer.renderer = activeRenderer;
             }
 
