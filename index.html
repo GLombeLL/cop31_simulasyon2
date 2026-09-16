@@ -14,6 +14,7 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #121212;
       color: #e0e0e0;
+      overflow: hidden;
     }
     #viewDiv {
       width: 100%;
@@ -25,17 +26,18 @@
       top: 20px;
       left: 20px;
       z-index: 99;
-      background: rgba(18, 18, 18, 0.9);
+      background: rgba(18, 18, 18, 0.92);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.15);
       padding: 20px;
       border-radius: 12px;
-      width: 320px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      width: 340px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
     .control-panel h2 {
       font-size: 15px;
       margin-top: 0;
+      margin-bottom: 15px;
       color: #4CAF50;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -46,23 +48,28 @@
     .slider-group label {
       display: block;
       font-size: 13px;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
       color: #b0b0b0;
     }
     .slider-group input {
       width: 100%;
-      accent-color: #4CAF50;
       cursor: pointer;
+      transition: accent-color 0.3s ease;
     }
     .stats-box {
       margin-top: 15px;
-      padding-top: 10px;
+      padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.1);
       font-size: 13px;
     }
-    .stats-box span {
-      font-weight: bold;
-      color: #FF5722;
+    .impact-metrics {
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      border-left: 3px solid #f44336;
+      transition: all 0.3s ease;
     }
   </style>
 
@@ -80,12 +87,15 @@
     </div>
 
     <div class="slider-group">
-      <label>Işık Kirliliği Azaltma Oranı: <span id="lightVal">0</span>%</label>
+      <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
       <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
     </div>
 
     <div class="stats-box">
-      <div>Simüle Edilen Risk Durumu: <span id="statusText" style="color:#4CAF50;">Aktif (Normal)</span></div>
+      <div>Durum: <span id="statusText" style="color: #f44336;">Kritik Tehdit Altında</span></div>
+      <div class="impact-metrics" id="impactText">
+        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
+      </div>
     </div>
   </div>
 
@@ -94,9 +104,8 @@
   <script>
     require([
       "esri/WebScene",
-      "esri/views/SceneView",
-      "esri/layers/FeatureLayer"
-    ], function(WebScene, SceneView, FeatureLayer) {
+      "esri/views/SceneView"
+    ], function(WebScene, SceneView) {
 
       const scene = new WebScene({
         portalItem: {
@@ -111,57 +120,95 @@
 
       const rehexSlider = document.getElementById("rehexSlider");
       const lightSlider = document.getElementById("lightSlider");
-      const rehexVal = document.getElementById("rehexVal");
-      const lightVal = document.getElementById("lightVal");
+      const rehexValDisplay = document.getElementById("rehexVal");
+      const lightValDisplay = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
+      const impactText = document.getElementById("impactText");
 
-      // Sahne yüklendiğinde ana risk katmanını yakalayalım
+      function getDynamicColor(val) {
+        if (val < 35) return "#ef5350"; // Yumuşak Kırmızı
+        if (val < 75) return "#ffa726"; // Turuncu
+        return "#66bb6a";              // Uyumlu Yumuşak Yeşil
+      }
+
       view.when(() => {
         scene.when(() => {
-          // WebScene içindeki katmanı buluyoruz
-          const layer = scene.layers.find(l => l.type === "feature");
-          
-          if (layer) {
+          let targetLayer = null;
+          scene.allLayers.forEach((layer) => {
+            if (layer.type === "feature") {
+              targetLayer = layer;
+            }
+          });
+
+          if (targetLayer) {
             function updateLayerSimulation() {
               const rVal = parseInt(rehexSlider.value);
               const lVal = parseInt(lightSlider.value);
 
-              rehexVal.innerText = rVal;
-              lightVal.innerText = lVal;
+              rehexValDisplay.innerText = rVal;
+              lightValDisplay.innerText = lVal;
 
-              // Çarpanlar hesaplanıyor (Koruma arttıkça risk çarpanı düşer)
-              const rFactor = 1 - (rVal / 100);
-              const lFactor = 1 - (lVal / 100);
+              rehexSlider.style.accentColor = getDynamicColor(rVal);
+              lightSlider.style.accentColor = getDynamicColor(lVal);
 
-              // ArcGIS Arcade tabanlı dinamik extrusion (sütun boyu) güncellemesi
-              layer.renderer = {
+              // Ortalama koruma yüzdesi (0 ile 100 arası)
+              const avgProtection = (rVal + lVal) / 2;
+
+              // Yavru sayısı: Koruma 0 iken 120, Koruma 100 iken maksimum (~1500+ yavru)
+              const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
+
+              let statusHTML = "";
+              let statusColor = "#ef5350";
+              let polygonColor = [244, 67, 54, 0.85]; // Kırmızı
+
+              if (rVal === 0 && lVal === 0) {
+                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
+                statusColor = "#ef5350";
+                polygonColor = [244, 67, 54, 0.85];
+              } else if (avgProtection <= 30) {
+                statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
+                statusColor = "#ffa726";
+                polygonColor = [255, 152, 0, 0.85];
+              } else if (avgProtection <= 70) {
+                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
+                statusColor = "#ffee58";
+                polygonColor = [255, 235, 59, 0.85];
+              } else if (avgProtection < 95) {
+                statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
+                statusColor = "#9ccc65";
+                polygonColor = [139, 195, 74, 0.85];
+              } else {
+                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
+                statusColor = "#66bb6a";
+                polygonColor = [76, 175, 80, 0.85];
+              }
+
+              statusText.innerHTML = statusHTML;
+              statusText.style.color = statusColor;
+              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
+              impactText.style.borderLeftColor = statusColor;
+
+              // Risk yüksekliği: Koruma 0'ken sütunlar maksimum boyda (tehdit yüksek), koruma arttıkça normal seviyeye iner/değişir
+              targetLayer.renderer = {
                 type: "simple",
                 symbol: {
                   type: "polygon-3d",
                   symbolLayers: [{
                     type: "extrude",
-                    // Rehex_Score ve Risk_Skoru üzerinden anlık simüle yükseklik hesabı
-                    size: `($feature.Risk_Skoru * ${rFactor} * 15) + ($feature.Rehex_Score * ${lFactor} * 10)`,
-                    material: { 
-                      color: rVal > 50 ? [76, 175, 80, 0.8] : [244, 67, 54, 0.8] // Koruma yüksekse Yeşil, düşükse Kırmızı
-                    },
+                    size: `($feature.Risk_Skoru * (1 - (${avgProtection} / 120))) + 10`,
+                    material: { color: polygonColor },
                     edges: {
                       type: "solid",
-                      color: [50, 50, 50, 0.5],
+                      color: [30, 30, 30, 0.4],
                       size: 1
                     }
                   }]
                 }
               };
-
-              if(rVal > 50 || lVal > 50) {
-                statusText.innerText = "Optimum Koruma Sağlandı";
-                statusText.style.color = "#4CAF50";
-              } else {
-                statusText.innerText = "Yüksek Tehdit Altında";
-                statusText.style.color = "#FF5722";
-              }
             }
+
+            // İlk açılışta tetikle
+            updateLayerSimulation();
 
             rehexSlider.addEventListener("input", updateLayerSimulation);
             lightSlider.addEventListener("input", updateLayerSimulation);
