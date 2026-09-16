@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>COP31 Caretta Simülasyon Motoru</title>
+
+  <style>
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212; color: #e0e0e0; overflow: hidden;
+    }
+    #viewDiv { width: 100%; height: 100%; position: absolute; }
+
+    /* ArcGIS sol üstteki tüm kalıntıları kesin olarak gizle */
+    .esri-ui-top-left {
+      display: none !important;
+    }
+
+    /* Duyarlı (Responsive) Kontrol Paneli Tasarımı */
+    .control-panel {
+      position: absolute; 
+      top: 20px; 
+      left: 20px; 
+      z-index: 99;
+      background: rgba(18, 18, 18, 0.92); 
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 20px; 
+      border-radius: 12px; 
+      width: 340px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      transition: all 0.3s ease;
+    }
+    
+    .control-panel h2 {
+      font-size: 15px; margin-top: 0; margin-bottom: 15px;
+      color: #4CAF50; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .section-label {
+      font-size: 11px; color: #8a8a8a; text-transform: uppercase;
+      letter-spacing: 1px; margin: 16px 0 8px 0;
+    }
+    select#plajSelect {
+      width: 100%; padding: 9px 10px; border-radius: 8px;
+      background: #1e1e1e; color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px; cursor: pointer;
+    }
+    .slider-group { margin-bottom: 15px; }
+    .slider-group label { display: block; font-size: 13px; margin-bottom: 8px; color: #b0b0b0; }
+    .slider-group input { width: 100%; cursor: pointer; transition: accent-color 0.3s ease; }
+
+    .stats-box { margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; }
+    .impact-metrics {
+      margin-top: 10px; background: rgba(255, 255, 255, 0.05); padding: 10px;
+      border-radius: 8px; font-size: 12px; border-left: 3px solid #ef5350;
+      transition: all 0.3s ease;
+    }
+
+    /* Şov Efekti Ekran Ortası Modal Paneli */
+    #celebrationOverlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.7);
+      background: rgba(18, 18, 18, 0.95);
+      backdrop-filter: blur(16px);
+      color: #fff;
+      padding: 35px 50px;
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 40px rgba(102, 187, 106, 0.3);
+      z-index: 10000;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 2px solid rgba(102, 187, 106, 0.6);
+      width: 80%;
+      max-width: 450px;
+    }
+    #celebrationOverlay.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #celebrationOverlay .big-emoji {
+      font-size: 64px;
+      margin-bottom: 15px;
+      display: inline-block;
+      animation: bounce 1s infinite alternate;
+    }
+    #celebrationOverlay h3 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+      color: #66bb6a;
+      letter-spacing: 0.5px;
+    }
+    #celebrationOverlay p {
+      margin: 0;
+      font-size: 14px;
+      color: #c8e6c9;
+      line-height: 1.5;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+
+    /* MOBİL UYUMLULUK (Medya Sorgusu) */
+    @media screen and (max-width: 768px) {
+      .control-panel {
+        top: auto;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-height: 45vh;
+        overflow-y: auto;
+        padding: 15px;
+        border-radius: 16px;
+      }
+      .control-panel h2 {
+        font-size: 13px;
+        margin-bottom: 10px;
+      }
+      .section-label {
+        margin: 10px 0 5px 0;
+      }
+    }
+  </style>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/dark/main.css" />
+  <script src="https://js.arcgis.com/4.28/"></script>
+</head>
+<body>
+
+  <!-- Tebrik / Şov Ekran Ortası Modalı -->
+  <div id="celebrationOverlay">
+    <div class="big-emoji">🐢🏆</div>
+    <h3>TEBRİKLER, COP31 HEDEFLERE ULAŞILDI!</h3>
+    <p>Kıyı yapılaşması ve ışık kirliliği sıfırlandı.<br>Güvenli habitat sağlandı, caretta caretta yavruları güvenle denize ulaşıyor!</p>
+  </div>
+
+  <div class="control-panel">
+    <h2>COP31 Simülasyon Laboratuvarı</h2>
+
+    <div class="section-label">Plaj Filtresi</div>
+    <select id="plajSelect">
+      <option value="__ALL__">Tüm Plajlar</option>
+    </select>
+
+    <div class="section-label">Koruma Senaryosu</div>
+    <div class="slider-group">
+      <label>Kıyı Yapılaşma Kısıtı (Rehex): <span id="rehexVal">0</span>%</label>
+      <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
+    </div>
+    <div class="slider-group">
+      <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
+      <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
+    </div>
+
+    <div class="stats-box">
+      <div>Durum: <span id="statusText" style="color: #ef5350;">Kritik Tehdit Altında</span></div>
+      <div class="impact-metrics" id="impactText">
+        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
+      </div>
+    </div>
+  </div>
+
+  <div id="viewDiv"></div>
+
+  <script>
+    require([
+      "esri/WebScene",
+      "esri/views/SceneView",
+      "esri/layers/GraphicsLayer",
+      "esri/Graphic",
+      "esri/geometry/geometryEngine"
+    ], function(WebScene, SceneView, GraphicsLayer, Graphic, geometryEngine) {
+
+      const HEIGHT_BASE_MULTIPLIER = 25; 
+      const EXAGGERATION_AT_0_PROTECTION   = 3.0;   
+      const EXAGGERATION_AT_100_PROTECTION = 0.15;  
+
+      const ZOOM_SCALE = 2200;        
+      const ZOOM_TILT = 72;            
+      const ZOOM_DURATION = 2800;      
+      const ZOOM_EASING = "in-out-cubic";
+
+      const OVERVIEW_LON = 30.75;
+      const OVERVIEW_LAT = 36.85;
+      const OVERVIEW_Z = 70000;        
+      const OVERVIEW_TILT = 30;        
+      const OVERVIEW_HEADING = 0;
+      const OVERVIEW_DURATION = 2800;
+
+      const COLOR_STOPS = [
+        { value: 0,   color: [239, 83, 80]  },  
+        { value: 25,  color: [255, 112, 67] },  
+        { value: 50,  color: [255, 167, 38] },  
+        { value: 75,  color: [205, 220, 57] },  
+        { value: 100, color: [102, 187, 106] }  
+      ];
+
+      const scene = new WebScene({ portalItem: { id: "c624627b97ab408e8becc96792b74d4d" } });
+      const view = new SceneView({ container: "viewDiv", map: scene });
+
+      const highlightLayer = new GraphicsLayer({ elevationInfo: { mode: "relative-to-ground", offset: 2 } });
+      scene.add(highlightLayer);
+
+      const rehexSlider = document.getElementById("rehexSlider");
+      const lightSlider = document.getElementById("lightSlider");
+      const rehexValDisplay = document.getElementById("rehexVal");
+      const lightValDisplay = document.getElementById("lightVal");
+      const statusText = document.getElementById("statusText");
+      const impactText = document.getElementById("impactText");
+      const plajSelect = document.getElementById("plajSelect");
+      const celebrationOverlay = document.getElementById("celebrationOverlay");
+
+      function getDynamicColor(val) {
+        if (val < 35) return "#ef5350";
+        if (val < 75) return "#ffa726";
+        return "#66bb6a";
+      }
+
+      let targetLayer = null;
+      let baseRenderer = null;
+
+      view.when(() => {
+        scene.when(() => {
+          scene.allLayers.forEach((layer) => {
+            if (layer.type === "feature") targetLayer = layer;
+          });
+
+          if (!targetLayer) return;
+
+          targetLayer.load().then(() => {
+            baseRenderer = targetLayer.renderer.clone();
+
+            const query = targetLayer.createQuery();
+            query.where = "1=1";
+            query.outFields = ["Plaj_ID", "Plaj_Adi"];
+            query.returnGeometry = false;
+
+            targetLayer.queryFeatures(query).then((result) => {
+              const uniqueNames = [...new Set(
+                result.features.map(f => f.attributes.Plaj_Adi).filter(Boolean)
+              )].sort();
+
+              uniqueNames.forEach((name) => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                plajSelect.appendChild(opt);
+              });
+            });
+
+            function updateLayerSimulation() {
+              const rVal = parseInt(rehexSlider.value);
+              const lVal = parseInt(lightSlider.value);
+
+              rehexValDisplay.innerText = rVal;
+              lightValDisplay.innerText = lVal;
+              rehexSlider.style.accentColor = getDynamicColor(rVal);
+              lightSlider.style.accentColor = getDynamicColor(lVal);
+
+              const avgProtection = (rVal + lVal) / 2; 
+
+              if (rVal === 100 && lVal === 100) {
+                celebrationOverlay.classList.add("show");
+              } else {
+                celebrationOverlay.classList.remove("show");
+              }
+
+              const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
+              let statusHTML = "", statusColor = "#ef5350";
+              if (rVal === 0 && lVal === 0) {
+                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
+                statusColor = "#ef5350";
+              } else if (avgProtection <= 30) {
+                statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
+                statusColor = "#ffa726";
+              } else if (avgProtection <= 70) {
+                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
+                statusColor = "#ffee58";
+              } else if (avgProtection < 95) {
+                statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
+                statusColor = "#9ccc65";
+              } else {
+                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
+                statusColor = "#66bb6a";
+              }
+              statusText.innerHTML = statusHTML;
+              statusText.style.color = statusColor;
+              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
+              impactText.style.borderLeftColor = statusColor;
+
+              const exaggeration = EXAGGERATION_AT_0_PROTECTION -
+                (avgProtection / 100) * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
+              const totalScale = exaggeration * HEIGHT_BASE_MULTIPLIER;
+
+              let activeRenderer = baseRenderer.clone();
+              activeRenderer.visualVariables = [
+                {
+                  type: "size",
+                  valueExpression: `$feature.Risk_Skoru * ${totalScale}`,
+                  target: "extrusion",
+                  unit: "meters"
+                },
+                {
+                  type: "color",
+                  valueExpression: `${avgProtection}`,
+                  stops: COLOR_STOPS
+                }
+              ];
+              targetLayer.renderer = activeRenderer;
+            }
+
+            updateLayerSimulation();
+            rehexSlider.addEventListener("input", updateLayerSimulation);
+            lightSlider.addEventListener("input", updateLayerSimulation);
+
+            plajSelect.addEventListener("change", async () => {
+              const selected = plajSelect.value;
+              highlightLayer.removeAll();
+
+              if (selected === "__ALL__") {
+                targetLayer.definitionExpression = null;
+                view.goTo({
+                  position: { longitude: OVERVIEW_LON, latitude: OVERVIEW_LAT, z: OVERVIEW_Z },
+                  tilt: OVERVIEW_TILT,
+                  heading: OVERVIEW_HEADING
+                }, { duration: OVERVIEW_DURATION, easing: ZOOM_EASING });
+                return;
+              }
+
+              const safeName = selected.replace(/'/g, "''");
+              const fq = targetLayer.createQuery();
+              fq.where = `Plaj_Adi = '${safeName}'`;
+              fq.returnGeometry = true;
+              fq.outFields = ["*"];
+              fq.outSpatialReference = view.spatialReference;
+
+              const fres = await targetLayer.queryFeatures(fq);
+              if (fres.features.length === 0) return;
+
+              targetLayer.definitionExpression = `Plaj_Adi = '${safeName}'`;
+
+              const geoms = fres.features.map(f => f.geometry);
+              let unionGeom = geoms.length > 1 ? geometryEngine.union(geoms) : geoms[0];
+
+              highlightLayer.add(new Graphic({
+                geometry: unionGeom,
+                symbol: {
+                  type: "polygon-3d",
+                  symbolLayers: [{
+                    type: "fill",
+                    material: { color: [255, 255, 255, 0] },
+                    outline: { color: [76, 209, 165, 0.95], size: 3 }
+                  }]
+                }
+              }));
+
+              const centroid = unionGeom.extent.center;
+              view.goTo({
+                target: centroid,
+                scale: ZOOM_SCALE,
+                tilt: ZOOM_TILT,
+                heading: view.camera.heading
+              }, { duration: ZOOM_DURATION, easing: ZOOM_EASING });
+            });
+          });
+        });
+      });
+
+    });
+  </script>
+</body>
+</html>
