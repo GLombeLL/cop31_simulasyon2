@@ -31,7 +31,7 @@
       border: 1px solid rgba(255, 255, 255, 0.15);
       padding: 20px;
       border-radius: 12px;
-      width: 320px;
+      width: 340px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
     .control-panel h2 {
@@ -53,18 +53,23 @@
     }
     .slider-group input {
       width: 100%;
-      accent-color: #4CAF50;
       cursor: pointer;
+      transition: accent-color 0.3s ease;
     }
     .stats-box {
       margin-top: 15px;
-      padding-top: 10px;
+      padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.1);
       font-size: 13px;
     }
-    .stats-box span {
-      font-weight: bold;
-      color: #4CAF50;
+    .impact-metrics {
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      border-left: 3px solid #4CAF50;
+      transition: border-color 0.3s ease;
     }
   </style>
 
@@ -88,6 +93,9 @@
 
     <div class="stats-box">
       <div>Durum: <span id="statusText">Simülasyon Aktif</span></div>
+      <div class="impact-metrics" id="impactText">
+        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Baz Seviye)
+      </div>
     </div>
   </div>
 
@@ -115,6 +123,14 @@
       const rehexValDisplay = document.getElementById("rehexVal");
       const lightValDisplay = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
+      const impactText = document.getElementById("impactText");
+
+      // Değere göre Kırmızı -> Sarı -> Yeşil renk üreten yardımcı fonksiyon
+      function getDynamicColor(val) {
+        if (val < 35) return "#F44336"; // Kırmızı (Riskli)
+        if (val < 75) return "#FF9800"; // Turuncu/Sarı (Dengeli)
+        return "#4CAF50";              // Yeşil (İdeal)
+      }
 
       view.when(() => {
         scene.when(() => {
@@ -133,8 +149,40 @@
               rehexValDisplay.innerText = rVal;
               lightValDisplay.innerText = lVal;
 
+              // Slider renklerini değere göre dinamik güncelle
+              rehexSlider.style.accentColor = getDynamicColor(rVal);
+              lightSlider.style.accentColor = getDynamicColor(lVal);
+
               const rFactor = 1 - (rVal / 100);
               const lFactor = 1 - (lVal / 100);
+
+              const savedHatchlings = Math.round(120 + ((rVal * 15) + (lVal * 12)));
+              const efficiencyRate = Math.round((rVal + lVal) / 2);
+
+              let statusHTML = "";
+              let statusColor = "#4CAF50";
+
+              if (rVal === 0 && lVal === 0) {
+                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama baskı altında.";
+                statusColor = "#F44336";
+              } else if (rVal <= 30 && lVal <= 30) {
+                statusHTML = "📉 <b>Düşük Koruma:</b> Kayıplar yüksek.";
+                statusColor = "#FF9800";
+              } else if (rVal <= 60 && lVal <= 60) {
+                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme.";
+                statusColor = "#FFEB3B";
+              } else if (rVal < 90 || lVal < 90) {
+                statusHTML = "🌿 <b>Yüksek Koruma:</b> Başarı artıyor.";
+                statusColor = "#8BC34A";
+              } else {
+                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedefine Uyum!";
+                statusColor = "#4CAF50";
+              }
+
+              statusText.innerHTML = statusHTML;
+              statusText.style.color = statusColor;
+              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${efficiencyRate})`;
+              impactText.style.borderLeftColor = statusColor;
 
               targetLayer.renderer = {
                 type: "simple",
