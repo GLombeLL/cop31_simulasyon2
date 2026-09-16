@@ -100,7 +100,7 @@
   <!-- Tebrik / Şov Ekran Ortası Modalı -->
   <div id="celebrationOverlay">
     <div class="big-emoji">🐢🏆</div>
-    <h3>TEBRİKLER, COP31 HEDEFLERİNE ULAŞILDI!</h3>
+    <h3>TEBRİKLER, COP31 HEDEFLERE ULAŞILDI!</h3>
     <p>Kıyı yapılaşması ve ışık kirliliği sıfırlandı.<br>Güvenli habitat sağlandı, caretta caretta yavruları güvenle denize ulaşıyor!</p>
   </div>
 
@@ -167,6 +167,9 @@
 
       const scene = new WebScene({ portalItem: { id: "c624627b97ab408e8becc96792b74d4d" } });
       const view = new SceneView({ container: "viewDiv", map: scene });
+
+      // Varsayılan ArcGIS arayüz elemanlarını sol üstten sağ üst köşeye taşı
+      view.ui.move("zoom", "top-right");
 
       const highlightLayer = new GraphicsLayer({ elevationInfo: { mode: "relative-to-ground", offset: 2 } });
       scene.add(highlightLayer);
