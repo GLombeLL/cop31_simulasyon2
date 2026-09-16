@@ -4,72 +4,44 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>COP31 Caretta Simülasyon Motoru</title>
-  
+
   <style>
     body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
+      margin: 0; padding: 0; width: 100%; height: 100%;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #121212;
-      color: #e0e0e0;
-      overflow: hidden;
+      background: #121212; color: #e0e0e0; overflow: hidden;
     }
-    #viewDiv {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-    }
+    #viewDiv { width: 100%; height: 100%; position: absolute; }
+
     .control-panel {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      z-index: 99;
-      background: rgba(18, 18, 18, 0.9);
-      backdrop-filter: blur(12px);
+      position: absolute; top: 20px; left: 20px; z-index: 99;
+      background: rgba(18, 18, 18, 0.92); backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 20px;
-      border-radius: 12px;
-      width: 340px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      padding: 20px; border-radius: 12px; width: 340px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
     .control-panel h2 {
-      font-size: 15px;
-      margin-top: 0;
-      margin-bottom: 15px;
-      color: #4CAF50;
-      text-transform: uppercase;
-      letter-spacing: 1px;
+      font-size: 15px; margin-top: 0; margin-bottom: 15px;
+      color: #4CAF50; text-transform: uppercase; letter-spacing: 1px;
     }
-    .slider-group {
-      margin-bottom: 15px;
+    .section-label {
+      font-size: 11px; color: #8a8a8a; text-transform: uppercase;
+      letter-spacing: 1px; margin: 16px 0 8px 0;
     }
-    .slider-group label {
-      display: block;
-      font-size: 13px;
-      margin-bottom: 8px;
-      color: #b0b0b0;
+    select#plajSelect {
+      width: 100%; padding: 9px 10px; border-radius: 8px;
+      background: #1e1e1e; color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px; cursor: pointer;
     }
-    .slider-group input {
-      width: 100%;
-      cursor: pointer;
-      transition: accent-color 0.3s ease;
-    }
-    .stats-box {
-      margin-top: 15px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      font-size: 13px;
-    }
+    .slider-group { margin-bottom: 15px; }
+    .slider-group label { display: block; font-size: 13px; margin-bottom: 8px; color: #b0b0b0; }
+    .slider-group input { width: 100%; cursor: pointer; transition: accent-color 0.3s ease; }
+
+    .stats-box { margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; }
     .impact-metrics {
-      margin-top: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      border-left: 3px solid #4CAF50;
-      transition: border-color 0.3s ease;
+      margin-top: 10px; background: rgba(255, 255, 255, 0.05); padding: 10px;
+      border-radius: 8px; font-size: 12px; border-left: 3px solid #ef5350;
+      transition: all 0.3s ease;
     }
   </style>
 
@@ -80,21 +52,26 @@
 
   <div class="control-panel">
     <h2>COP31 Simülasyon Laboratuvarı</h2>
-    
+
+    <div class="section-label">Plaj Filtresi</div>
+    <select id="plajSelect">
+      <option value="__ALL__">Tüm Plajlar</option>
+    </select>
+
+    <div class="section-label">Koruma Senaryosu</div>
     <div class="slider-group">
       <label>Kıyı Yapılaşma Kısıtı (Rehex): <span id="rehexVal">0</span>%</label>
       <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
     </div>
-
     <div class="slider-group">
       <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
       <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
     </div>
 
     <div class="stats-box">
-      <div>Durum: <span id="statusText">Simülasyon Aktif</span></div>
+      <div>Durum: <span id="statusText" style="color: #ef5350;">Kritik Tehdit Altında</span></div>
       <div class="impact-metrics" id="impactText">
-        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Baz Seviye)
+        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
       </div>
     </div>
   </div>
@@ -104,19 +81,53 @@
   <script>
     require([
       "esri/WebScene",
-      "esri/views/SceneView"
-    ], function(WebScene, SceneView) {
+      "esri/views/SceneView",
+      "esri/layers/GraphicsLayer",
+      "esri/Graphic",
+      "esri/geometry/geometryEngine"
+    ], function(WebScene, SceneView, GraphicsLayer, Graphic, geometryEngine) {
 
-      const scene = new WebScene({
-        portalItem: {
-          id: "c624627b97ab408e8becc96792b74d4d"
-        }
-      });
+      // =====================================================================
+      // AYARLANABİLİR SABİTLER — tüm ince ayarları buradan yapın
+      // =====================================================================
 
-      const view = new SceneView({
-        container: "viewDiv",
-        map: scene
-      });
+      // --- Yükseklik (extrusion) abartı ayarları ---
+      // Risk_Skoru bu çarpanlarla çarpılır. Fark net hissedilsin diye aralık geniş tutuldu.
+      const HEIGHT_BASE_MULTIPLIER = 25;   // genel ölçek (metre) — sahne çok küçük/büyük görünüyorsa bunu değiştirin
+      const EXAGGERATION_AT_0_PROTECTION   = 3.0;   // %0 korumada: çok yüksek, dramatik
+      const EXAGGERATION_AT_100_PROTECTION = 0.15;  // %100 korumada: neredeyse düz
+
+      // --- Plaj seçilince yapılan yakın/sinematik zoom ---
+      const ZOOM_SCALE = 2200;        // küçük değer = çok daha yakın (deniz ekranı domine etmesin)
+      const ZOOM_TILT = 72;           // yere yakın, dramatik açı
+      const ZOOM_DURATION = 2800;     // ms
+      const ZOOM_EASING = "in-out-cubic";
+
+      // --- "Tüm Plajlar" seçilince Antalya'ya kuşbakışı genel görünüm ---
+      // Koordinatları kendi çalışma alanınızın merkezine göre ayarlayın.
+      const OVERVIEW_LON = 30.75;
+      const OVERVIEW_LAT = 36.85;
+      const OVERVIEW_Z = 70000;       // metre — yükseklik, ne kadar geniş görünsün istiyorsanız artırın
+      const OVERVIEW_TILT = 30;       // düşük tilt = daha "yukarıdan" bakış
+      const OVERVIEW_HEADING = 0;
+      const OVERVIEW_DURATION = 2800;
+
+      // --- Renk geçişleri (0-100 arası koruma seviyesine göre, kırmızı -> yeşil) ---
+      const COLOR_STOPS = [
+        { value: 0,   color: [239, 83, 80]  },  // kırmızı — kritik tehdit
+        { value: 25,  color: [255, 112, 67] },  // kırmızı-turuncu
+        { value: 50,  color: [255, 167, 38] },  // turuncu
+        { value: 75,  color: [205, 220, 57] },  // sarı-yeşil
+        { value: 100, color: [102, 187, 106] }  // yeşil — ideal ekosistem
+      ];
+
+      // =====================================================================
+
+      const scene = new WebScene({ portalItem: { id: "c624627b97ab408e8becc96792b74d4d" } });
+      const view = new SceneView({ container: "viewDiv", map: scene });
+
+      const highlightLayer = new GraphicsLayer({ elevationInfo: { mode: "relative-to-ground", offset: 2 } });
+      scene.add(highlightLayer);
 
       const rehexSlider = document.getElementById("rehexSlider");
       const lightSlider = document.getElementById("lightSlider");
@@ -124,89 +135,169 @@
       const lightValDisplay = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
       const impactText = document.getElementById("impactText");
+      const plajSelect = document.getElementById("plajSelect");
 
-      // Değere göre Kırmızı -> Sarı -> Yeşil renk üreten yardımcı fonksiyon
       function getDynamicColor(val) {
-        if (val < 35) return "#F44336"; // Kırmızı (Riskli)
-        if (val < 75) return "#FF9800"; // Turuncu/Sarı (Dengeli)
-        return "#4CAF50";              // Yeşil (İdeal)
+        if (val < 35) return "#ef5350";
+        if (val < 75) return "#ffa726";
+        return "#66bb6a";
       }
+
+      let targetLayer = null;
+      let baseRenderer = null;
 
       view.when(() => {
         scene.when(() => {
-          let targetLayer = null;
           scene.allLayers.forEach((layer) => {
-            if (layer.type === "feature") {
-              targetLayer = layer;
-            }
+            if (layer.type === "feature") targetLayer = layer;
           });
 
-          if (targetLayer) {
+          if (!targetLayer) {
+            console.error("❌ 'feature' tipinde katman bulunamadı.");
+            return;
+          }
+
+          targetLayer.load().then(() => {
+            baseRenderer = targetLayer.renderer.clone();
+
+            // ---- Plaj listesini doldur (aynı isimliler tek satırda toplanır) ----
+            const query = targetLayer.createQuery();
+            query.where = "1=1";
+            query.outFields = ["Plaj_ID", "Plaj_Adi"];
+            query.returnGeometry = false;
+
+            targetLayer.queryFeatures(query).then((result) => {
+              const uniqueNames = [...new Set(
+                result.features.map(f => f.attributes.Plaj_Adi).filter(Boolean)
+              )].sort();
+
+              uniqueNames.forEach((name) => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                plajSelect.appendChild(opt);
+              });
+            });
+
+            // =================================================================
+            // SLIDER -> YÜKSEKLİK + RENK (senkron, tek fonksiyon)
+            // =================================================================
             function updateLayerSimulation() {
               const rVal = parseInt(rehexSlider.value);
               const lVal = parseInt(lightSlider.value);
 
               rehexValDisplay.innerText = rVal;
               lightValDisplay.innerText = lVal;
-
-              // Slider renklerini değere göre dinamik güncelle
               rehexSlider.style.accentColor = getDynamicColor(rVal);
               lightSlider.style.accentColor = getDynamicColor(lVal);
 
-              const rFactor = 1 - (rVal / 100);
-              const lFactor = 1 - (lVal / 100);
+              const avgProtection = (rVal + lVal) / 2; // 0-100
 
-              const savedHatchlings = Math.round(120 + ((rVal * 15) + (lVal * 12)));
-              const efficiencyRate = Math.round((rVal + lVal) / 2);
-
-              let statusHTML = "";
-              let statusColor = "#4CAF50";
-
+              const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
+              let statusHTML = "", statusColor = "#ef5350";
               if (rVal === 0 && lVal === 0) {
-                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama baskı altında.";
-                statusColor = "#F44336";
-              } else if (rVal <= 30 && lVal <= 30) {
-                statusHTML = "📉 <b>Düşük Koruma:</b> Kayıplar yüksek.";
-                statusColor = "#FF9800";
-              } else if (rVal <= 60 && lVal <= 60) {
-                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme.";
-                statusColor = "#FFEB3B";
-              } else if (rVal < 90 || lVal < 90) {
-                statusHTML = "🌿 <b>Yüksek Koruma:</b> Başarı artıyor.";
-                statusColor = "#8BC34A";
+                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
+                statusColor = "#ef5350";
+              } else if (avgProtection <= 30) {
+                statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
+                statusColor = "#ffa726";
+              } else if (avgProtection <= 70) {
+                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
+                statusColor = "#ffee58";
+              } else if (avgProtection < 95) {
+                statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
+                statusColor = "#9ccc65";
               } else {
-                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedefine Uyum!";
-                statusColor = "#4CAF50";
+                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
+                statusColor = "#66bb6a";
               }
-
               statusText.innerHTML = statusHTML;
               statusText.style.color = statusColor;
-              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${efficiencyRate})`;
+              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
               impactText.style.borderLeftColor = statusColor;
 
-              targetLayer.renderer = {
-                type: "simple",
+              // Koruma arttıkça yükseklik çarpanı EXAGGERATION_AT_0 -> EXAGGERATION_AT_100 arasında düşer
+              const exaggeration = EXAGGERATION_AT_0_PROTECTION -
+                (avgProtection / 100) * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
+              const totalScale = exaggeration * HEIGHT_BASE_MULTIPLIER;
+
+              let activeRenderer = baseRenderer.clone();
+              activeRenderer.visualVariables = [
+                {
+                  type: "size",
+                  valueExpression: `$feature.Risk_Skoru * ${totalScale}`,
+                  target: "extrusion",
+                  unit: "meters"
+                },
+                {
+                  type: "color",
+                  valueExpression: `${avgProtection}`,
+                  stops: COLOR_STOPS
+                }
+              ];
+              targetLayer.renderer = activeRenderer;
+            }
+
+            updateLayerSimulation();
+            rehexSlider.addEventListener("input", updateLayerSimulation);
+            lightSlider.addEventListener("input", updateLayerSimulation);
+
+            // =================================================================
+            // PLAJ FİLTRESİ + GRUP VURGUSU + KAMERA (yakın zoom / genel bakış)
+            // =================================================================
+            plajSelect.addEventListener("change", async () => {
+              const selected = plajSelect.value;
+              highlightLayer.removeAll();
+
+              if (selected === "__ALL__") {
+                targetLayer.definitionExpression = null;
+                view.goTo({
+                  position: { longitude: OVERVIEW_LON, latitude: OVERVIEW_LAT, z: OVERVIEW_Z },
+                  tilt: OVERVIEW_TILT,
+                  heading: OVERVIEW_HEADING
+                }, { duration: OVERVIEW_DURATION, easing: ZOOM_EASING });
+                return;
+              }
+
+              const safeName = selected.replace(/'/g, "''");
+              const fq = targetLayer.createQuery();
+              fq.where = `Plaj_Adi = '${safeName}'`;
+              fq.returnGeometry = true;
+              fq.outFields = ["*"];
+              fq.outSpatialReference = view.spatialReference;
+
+              const fres = await targetLayer.queryFeatures(fq);
+              if (fres.features.length === 0) return;
+
+              // Filtre: sadece seçili plajı(ları) göster
+              targetLayer.definitionExpression = `Plaj_Adi = '${safeName}'`;
+
+              // Aynı isimli birden fazla poligon varsa görsel olarak tek grup gibi birleştir
+              const geoms = fres.features.map(f => f.geometry);
+              let unionGeom = geoms.length > 1 ? geometryEngine.union(geoms) : geoms[0];
+
+              highlightLayer.add(new Graphic({
+                geometry: unionGeom,
                 symbol: {
                   type: "polygon-3d",
                   symbolLayers: [{
-                    type: "extrude",
-                    size: (15 * rFactor) + (10 * lFactor),
-                    material: { 
-                      color: rVal > 50 || lVal > 50 ? [76, 175, 80, 0.85] : [244, 67, 54, 0.85] 
-                    },
-                    edges: {
-                      type: "solid",
-                      color: [30, 30, 30, 0.4],
-                      size: 1
-                    }
+                    type: "fill",
+                    material: { color: [255, 255, 255, 0] },
+                    outline: { color: [76, 209, 165, 0.95], size: 3 }
                   }]
                 }
-              };
-            }
+              }));
 
-            rehexSlider.addEventListener("input", updateLayerSimulation);
-            lightSlider.addEventListener("input", updateLayerSimulation);
-          }
+              // Yakın, alçak açılı, tatlı geçişli kamera — kullanıcı slider farkını net hissetsin
+              const centroid = unionGeom.extent.center;
+              view.goTo({
+                target: centroid,
+                scale: ZOOM_SCALE,
+                tilt: ZOOM_TILT,
+                heading: view.camera.heading
+              }, { duration: ZOOM_DURATION, easing: ZOOM_EASING });
+            });
+          });
         });
       });
 
