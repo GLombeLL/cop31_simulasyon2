@@ -116,43 +116,59 @@
       const statusText = document.getElementById("statusText");
 
       // Sahne yüklendiğinde ana risk katmanını yakalayalım
-      view.when(() => {
-        scene.when(() => {
-          // WebScene içindeki katmanı buluyoruz
-          const layer = scene.layers.find(l => l.type === "feature");
-          
-          if (layer) {
-            function updateLayerSimulation() {
-              const rVal = parseInt(rehexSlider.value);
-              const lVal = parseInt(lightSlider.value);
+     view.when(() => {
+  console.log("✅ View yüklendi");
+  scene.when(() => {
+    console.log("✅ Scene yüklendi. Katmanlar:", scene.layers.items.map(l => ({ title: l.title, type: l.type })));
 
-              rehexVal.innerText = rVal;
-              lightVal.innerText = lVal;
+    const layer = scene.layers.find(l => l.type === "feature");
 
-              // Çarpanlar hesaplanıyor (Koruma arttıkça risk çarpanı düşer)
-              const rFactor = 1 - (rVal / 100);
-              const lFactor = 1 - (lVal / 100);
+    if (!layer) {
+      console.error("❌ 'feature' tipinde katman bulunamadı! Yukarıdaki listeye bakıp gerçek type değerini kontrol edin.");
+      return;
+    }
 
-              // ArcGIS Arcade tabanlı dinamik extrusion (sütun boyu) güncellemesi
-              layer.renderer = {
-                type: "simple",
-                symbol: {
-                  type: "polygon-3d",
-                  symbolLayers: [{
-                    type: "extrude",
-                    // Rehex_Score ve Risk_Skoru üzerinden anlık simüle yükseklik hesabı
-                    size: `($feature.Risk_Skoru * ${rFactor} * 15) + ($feature.Rehex_Score * ${lFactor} * 10)`,
-                    material: { 
-                      color: rVal > 50 ? [76, 175, 80, 0.8] : [244, 67, 54, 0.8] // Koruma yüksekse Yeşil, düşükse Kırmızı
-                    },
-                    edges: {
-                      type: "solid",
-                      color: [50, 50, 50, 0.5],
-                      size: 1
-                    }
-                  }]
-                }
-              };
+    console.log("✅ Katman bulundu:", layer.title);
+
+    // Gerçek alan adlarını doğrulamak için:
+    layer.load().then(() => {
+      console.log("📋 Gerçek alan adları:", layer.fields.map(f => f.name));
+    });
+
+    function updateLayerSimulation() {
+      const rVal = parseInt(rehexSlider.value);
+      const lVal = parseInt(lightSlider.value);
+      console.log("🎚️ Slider tetiklendi:", rVal, lVal);
+
+      rehexVal.innerText = rVal;
+      lightVal.innerText = lVal;
+
+      const rFactor = 1 - (rVal / 100);
+      const lFactor = 1 - (lVal / 100);
+
+      layer.renderer = {
+        type: "simple",
+        symbol: {
+          type: "polygon-3d",
+          symbolLayers: [{
+            type: "extrude",
+            // ⚠️ Alan adlarını 📋 loguna göre burada düzeltin
+            size: `($feature.Kiyi_Baski_Endeksi_v2 * ${rFactor} * 15) + ($feature.Kiyi_Baski_Endeksi_v2 * ${lFactor} * 10)`,
+            material: { color: rVal > 50 ? [76, 175, 80, 0.8] : [244, 67, 54, 0.8] },
+            edges: { type: "solid", color: [50, 50, 50, 0.5], size: 1 }
+          }]
+        }
+      };
+
+      statusText.innerText = (rVal > 50 || lVal > 50) ? "Optimum Koruma Sağlandı" : "Yüksek Tehdit Altında";
+      statusText.style.color = (rVal > 50 || lVal > 50) ? "#4CAF50" : "#FF5722";
+    }
+
+    rehexSlider.addEventListener("input", updateLayerSimulation);
+    lightSlider.addEventListener("input", updateLayerSimulation);
+    updateLayerSimulation(); // sayfa açılır açılmaz bir kere çalıştır, ilk durumu görmek için
+  });
+});
 
               if(rVal > 50 || lVal > 50) {
                 statusText.innerText = "Optimum Koruma Sağlandı";
