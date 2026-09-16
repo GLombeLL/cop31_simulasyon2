@@ -14,6 +14,7 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #121212;
       color: #e0e0e0;
+      overflow: hidden;
     }
     #viewDiv {
       width: 100%;
@@ -36,6 +37,7 @@
     .control-panel h2 {
       font-size: 15px;
       margin-top: 0;
+      margin-bottom: 15px;
       color: #4CAF50;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -46,7 +48,7 @@
     .slider-group label {
       display: block;
       font-size: 13px;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
       color: #b0b0b0;
     }
     .slider-group input {
@@ -62,7 +64,7 @@
     }
     .stats-box span {
       font-weight: bold;
-      color: #FF5722;
+      color: #4CAF50;
     }
   </style>
 
@@ -80,12 +82,12 @@
     </div>
 
     <div class="slider-group">
-      <label>Işık Kirliliği Azaltma Oranı: <span id="lightVal">0</span>%</label>
+      <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
       <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
     </div>
 
     <div class="stats-box">
-      <div>Durum: <span id="statusText" style="color:#4CAF50;">Sistem Hazır</span></div>
+      <div>Durum: <span id="statusText">Simülasyon Aktif</span></div>
     </div>
   </div>
 
@@ -124,14 +126,12 @@
           });
 
           if (targetLayer) {
-            statusText.innerText = "Simülasyon Aktif";
-
             function updateLayerSimulation() {
               const rVal = parseInt(rehexSlider.value);
               const lVal = parseInt(lightSlider.value);
 
               rehexVal.innerText = rVal;
-              letVal.innerText = lVal;
+              lightVal.innerText = lVal; // Hata veren kısım düzeltildi
 
               const rFactor = 1 - (rVal / 100);
               const lFactor = 1 - (lVal / 100);
