@@ -185,7 +185,25 @@
         });
       });
 
+    });if(rVal > 50 || lVal > 50) {
+                statusText.innerText = "Optimum Koruma Sağlandı";
+                statusText.style.color = "#4CAF50";
+              } else {
+                statusText.innerText = "Yüksek Tehdit Altında";
+                statusText.style.color = "#FF5722";
+              }
+            }
+
+            rehexSlider.addEventListener("input", updateLayerSimulation);
+            lightSlider.addEventListener("input", updateLayerSimulation);
+          }
+        });
+      });
+
     });
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>
