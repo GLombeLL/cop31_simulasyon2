@@ -190,23 +190,19 @@
               impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
               impactText.style.borderLeftColor = statusColor;
 
-              const scaleFactor = 1 - (avgProtection / 100) * 0.5;
+              // PRO RENDERER'INI EZMEDEN, SADECE BOYUTU (EXTRUSION) GÜNCELLİYORUZ:
+              let activeRenderer = baseRenderer.clone();
+              const scaleFactor = 1 - (avgProtection / 100) * 0.5; // Koruma arttıkça yükseklik orantılı iner
 
-              // Pro'dan gelen orijinal renk sınıflarını KULLANMIYORUZ — tamamen kendi
-              // 3 duraklı gradyanımızı tanımlıyoruz. Bu, pembe/eflatun gibi beklenmedik
-              // ara renklerin çıkmasını matematiksel olarak imkansız kılar.
-              targetLayer.renderer = {
-                type: "simple",
-                symbol: {
-                  type: "polygon-3d",
-                  symbolLayers: [{
-                    type: "extrude",
-                    size: `$feature.Risk_Skoru * ${scaleFactor}`,
-                    material: { color: [200, 200, 200, 0.85] }, // sadece fallback/alpha kaynağı
-                    edges: { type: "solid", color: [40, 40, 40, 0.5], size: 1 }
-                  }]
+              // Visual Variables: yükseklik (size) hiç değişmedi, sadece rengi (color) ekledik
+              activeRenderer.visualVariables = [
+                {
+                  type: "size",
+                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
+                  target: "extrusion",
+                  unit: "meters"
                 },
-                visualVariables: [{
+                {
                   type: "color",
                   valueExpression: `${avgProtection}`,
                   stops: [
@@ -216,8 +212,9 @@
                     { value: 75,  color: [205, 220, 57] },  // sarı-yeşil — yüksek koruma
                     { value: 100, color: [102, 187, 106] }  // yeşil — ideal ekosistem
                   ]
-                }]
-              };
+                }
+              ];
+              targetLayer.renderer = activeRenderer;
             }
 
             updateLayerSimulation();
