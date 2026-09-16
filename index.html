@@ -43,12 +43,55 @@
       border-radius: 8px; font-size: 12px; border-left: 3px solid #ef5350;
       transition: all 0.3s ease;
     }
+
+    /* Şov Efekti için Kutlama Paneli */
+    #celebrationOverlay {
+      position: absolute;
+      bottom: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(46, 125, 50, 0.95);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      padding: 15px 30px;
+      border-radius: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      z-index: 1000;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 1px solid rgba(255,255,255,0.3);
+      pointer-events: none;
+    }
+    #celebrationOverlay.show {
+      bottom: 30px;
+    }
+    #celebrationOverlay span {
+      font-size: 28px;
+      animation: bounce 1s infinite alternate;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-6px); }
+    }
   </style>
 
   <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/dark/main.css" />
   <script src="https://js.arcgis.com/4.28/"></script>
 </head>
 <body>
+
+  <!-- Tebrik / Şov Katmanı -->
+  <div id="celebrationOverlay">
+    <span>🐢</span>
+    <div>
+      <div>Tebrikler! COP31 Hedeflerine Ulaşıldı!</div>
+      <div style="font-size: 11px; font-weight: 400; color: #c8e6c9;">Güvenli habitat sağlandı, carettalar denize ulaşıyor. Teşekkürler!</div>
+    </div>
+  </div>
 
   <div class="control-panel">
     <h2>COP31 Simülasyon Laboratuvarı</h2>
@@ -72,48 +115,7 @@
       <div>Durum: <span id="statusText" style="color: #ef5350;">Kritik Tehdit Altında</span></div>
       <div class="impact-metrics" id="impactText">
         🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
-        /* Şov Efekti için Kutlama Paneli */
-    #celebrationOverlay {
-      position: absolute;
-      bottom: -100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(46, 125, 50, 0.95);
-      backdrop-filter: blur(10px);
-      color: #fff;
-      padding: 15px 30px;
-      border-radius: 30px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      z-index: 1000;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      border: 1px solid rgba(255,255,255,0.3);
-      pointer-events: none;
-    }
-    #celebrationOverlay.show {
-      bottom: 30px;
-    }
-    #celebrationOverlay span {
-      font-size: 24px;
-      animation: bounce 1s infinite alternate;
-    }
-    @keyframes bounce {
-      from { transform: translateY(0); }
-      to { transform: translateY(-5px); }
-    }
       </div>
-    </div>
-  </div>
-  <!-- Tebrik / Şov Katmanı -->
-  <div id="celebrationOverlay">
-    <span>🐢</span>
-    <div>
-      <div>Tebrikler! COP31 Hedeflerine Ulaşıldı!</div>
-      <div style="font-size: 11px; font-weight: 400; color: #c8e6c9;">Güvenli habitat sağlandı, carettalar denize ulaşıyor. Teşekkürler!</div>
     </div>
   </div>
 
@@ -128,41 +130,29 @@
       "esri/geometry/geometryEngine"
     ], function(WebScene, SceneView, GraphicsLayer, Graphic, geometryEngine) {
 
-      // =====================================================================
-      // AYARLANABİLİR SABİTLER — tüm ince ayarları buradan yapın
-      // =====================================================================
+      const HEIGHT_BASE_MULTIPLIER = 25; 
+      const EXAGGERATION_AT_0_PROTECTION   = 3.0;   
+      const EXAGGERATION_AT_100_PROTECTION = 0.15;  
 
-      // --- Yükseklik (extrusion) abartı ayarları ---
-      // Risk_Skoru bu çarpanlarla çarpılır. Fark net hissedilsin diye aralık geniş tutuldu.
-      const HEIGHT_BASE_MULTIPLIER = 25;   // genel ölçek (metre) — sahne çok küçük/büyük görünüyorsa bunu değiştirin
-      const EXAGGERATION_AT_0_PROTECTION   = 3.0;   // %0 korumada: çok yüksek, dramatik
-      const EXAGGERATION_AT_100_PROTECTION = 0.15;  // %100 korumada: neredeyse düz
-
-      // --- Plaj seçilince yapılan yakın/sinematik zoom ---
-      const ZOOM_SCALE = 2200;        // küçük değer = çok daha yakın (deniz ekranı domine etmesin)
-      const ZOOM_TILT = 72;           // yere yakın, dramatik açı
-      const ZOOM_DURATION = 2800;     // ms
+      const ZOOM_SCALE = 2200;        
+      const ZOOM_TILT = 72;            
+      const ZOOM_DURATION = 2800;      
       const ZOOM_EASING = "in-out-cubic";
 
-      // --- "Tüm Plajlar" seçilince Antalya'ya kuşbakışı genel görünüm ---
-      // Koordinatları kendi çalışma alanınızın merkezine göre ayarlayın.
       const OVERVIEW_LON = 30.75;
       const OVERVIEW_LAT = 36.85;
-      const OVERVIEW_Z = 70000;       // metre — yükseklik, ne kadar geniş görünsün istiyorsanız artırın
-      const OVERVIEW_TILT = 30;       // düşük tilt = daha "yukarıdan" bakış
+      const OVERVIEW_Z = 70000;        
+      const OVERVIEW_TILT = 30;        
       const OVERVIEW_HEADING = 0;
       const OVERVIEW_DURATION = 2800;
 
-      // --- Renk geçişleri (0-100 arası koruma seviyesine göre, kırmızı -> yeşil) ---
       const COLOR_STOPS = [
-        { value: 0,   color: [239, 83, 80]  },  // kırmızı — kritik tehdit
-        { value: 25,  color: [255, 112, 67] },  // kırmızı-turuncu
-        { value: 50,  color: [255, 167, 38] },  // turuncu
-        { value: 75,  color: [205, 220, 57] },  // sarı-yeşil
-        { value: 100, color: [102, 187, 106] }  // yeşil — ideal ekosistem
+        { value: 0,   color: [239, 83, 80]  },  
+        { value: 25,  color: [255, 112, 67] },  
+        { value: 50,  color: [255, 167, 38] },  
+        { value: 75,  color: [205, 220, 57] },  
+        { value: 100, color: [102, 187, 106] }  
       ];
-
-      // =====================================================================
 
       const scene = new WebScene({ portalItem: { id: "c624627b97ab408e8becc96792b74d4d" } });
       const view = new SceneView({ container: "viewDiv", map: scene });
@@ -177,6 +167,7 @@
       const statusText = document.getElementById("statusText");
       const impactText = document.getElementById("impactText");
       const plajSelect = document.getElementById("plajSelect");
+      const celebrationOverlay = document.getElementById("celebrationOverlay");
 
       function getDynamicColor(val) {
         if (val < 35) return "#ef5350";
@@ -193,15 +184,11 @@
             if (layer.type === "feature") targetLayer = layer;
           });
 
-          if (!targetLayer) {
-            console.error("❌ 'feature' tipinde katman bulunamadı.");
-            return;
-          }
+          if (!targetLayer) return;
 
           targetLayer.load().then(() => {
             baseRenderer = targetLayer.renderer.clone();
 
-            // ---- Plaj listesini doldur (aynı isimliler tek satırda toplanır) ----
             const query = targetLayer.createQuery();
             query.where = "1=1";
             query.outFields = ["Plaj_ID", "Plaj_Adi"];
@@ -220,9 +207,6 @@
               });
             });
 
-            // =================================================================
-            // SLIDER -> YÜKSEKLİK + RENK (senkron, tek fonksiyon)
-            // =================================================================
             function updateLayerSimulation() {
               const rVal = parseInt(rehexSlider.value);
               const lVal = parseInt(lightSlider.value);
@@ -232,7 +216,14 @@
               rehexSlider.style.accentColor = getDynamicColor(rVal);
               lightSlider.style.accentColor = getDynamicColor(lVal);
 
-              const avgProtection = (rVal + lVal) / 2; // 0-100
+              const avgProtection = (rVal + lVal) / 2; 
+
+              // --- ŞOV EFEKTİ KONTROLÜ (%100 Koruma) ---
+              if (rVal === 100 && lVal === 100) {
+                celebrationOverlay.classList.add("show");
+              } else {
+                celebrationOverlay.classList.remove("show");
+              }
 
               const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
               let statusHTML = "", statusColor = "#ef5350";
@@ -257,7 +248,6 @@
               impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
               impactText.style.borderLeftColor = statusColor;
 
-              // Koruma arttıkça yükseklik çarpanı EXAGGERATION_AT_0 -> EXAGGERATION_AT_100 arasında düşer
               const exaggeration = EXAGGERATION_AT_0_PROTECTION -
                 (avgProtection / 100) * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
               const totalScale = exaggeration * HEIGHT_BASE_MULTIPLIER;
@@ -283,9 +273,6 @@
             rehexSlider.addEventListener("input", updateLayerSimulation);
             lightSlider.addEventListener("input", updateLayerSimulation);
 
-            // =================================================================
-            // PLAJ FİLTRESİ + GRUP VURGUSU + KAMERA (yakın zoom / genel bakış)
-            // =================================================================
             plajSelect.addEventListener("change", async () => {
               const selected = plajSelect.value;
               highlightLayer.removeAll();
@@ -297,13 +284,6 @@
                   tilt: OVERVIEW_TILT,
                   heading: OVERVIEW_HEADING
                 }, { duration: OVERVIEW_DURATION, easing: ZOOM_EASING });
-                // --- ŞOV EFEKTİ KONTROLÜ (%100 Koruma) ---
-              const overlay = document.getElementById("celebrationOverlay");
-              if (rVal === 100 && lVal === 100) {
-                overlay.classList.add("show");
-              } else {
-                overlay.classList.remove("show");
-              }
                 return;
               }
 
@@ -317,10 +297,8 @@
               const fres = await targetLayer.queryFeatures(fq);
               if (fres.features.length === 0) return;
 
-              // Filtre: sadece seçili plajı(ları) göster
               targetLayer.definitionExpression = `Plaj_Adi = '${safeName}'`;
 
-              // Aynı isimli birden fazla poligon varsa görsel olarak tek grup gibi birleştir
               const geoms = fres.features.map(f => f.geometry);
               let unionGeom = geoms.length > 1 ? geometryEngine.union(geoms) : geoms[0];
 
@@ -336,7 +314,6 @@
                 }
               }));
 
-              // Yakın, alçak açılı, tatlı geçişli kamera — kullanıcı slider farkını net hissetsin
               const centroid = unionGeom.extent.center;
               view.goTo({
                 target: centroid,
