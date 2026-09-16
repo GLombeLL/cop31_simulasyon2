@@ -44,10 +44,10 @@
       transition: all 0.3s ease;
     }
 
-    /* Şov Efekti için Kutlama Paneli */
+    /* Şov Efekti Kutlama Paneli (JavaScript ile inline kontrol edilecek) */
     #celebrationOverlay {
       position: absolute;
-      bottom: -120px;
+      bottom: -150px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(46, 125, 50, 0.95);
@@ -55,19 +55,16 @@
       color: #fff;
       padding: 15px 30px;
       border-radius: 30px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      z-index: 1000;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      z-index: 9999;
       font-size: 14px;
       font-weight: 600;
       display: flex;
       align-items: center;
       gap: 15px;
       transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      border: 1px solid rgba(255,255,255,0.3);
+      border: 1px solid rgba(255,255,255,0.4);
       pointer-events: none;
-    }
-    #celebrationOverlay.show {
-      bottom: 30px;
     }
     #celebrationOverlay span {
       font-size: 28px;
@@ -218,11 +215,11 @@
 
               const avgProtection = (rVal + lVal) / 2; 
 
-              // --- ŞOV EFEKTİ KONTROLÜ (%100 Koruma) ---
+              // --- ŞOV EFEKTİ KONTROLÜ (Doğrudan Inline Stil ile) ---
               if (rVal === 100 && lVal === 100) {
-                celebrationOverlay.classList.add("show");
+                celebrationOverlay.style.bottom = "30px";
               } else {
-                celebrationOverlay.classList.remove("show");
+                celebrationOverlay.style.bottom = "-150px";
               }
 
               const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
