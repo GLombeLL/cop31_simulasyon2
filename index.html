@@ -4,79 +4,43 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>COP31 Caretta Simülasyon Motoru</title>
-  
+
   <style>
     body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
+      margin: 0; padding: 0; width: 100%; height: 100%;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #121212;
-      color: #e0e0e0;
-      overflow: hidden;
+      background: #121212; color: #e0e0e0; overflow: hidden;
     }
-    #viewDiv {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-    }
+    #viewDiv { width: 100%; height: 100%; position: absolute; }
+
     .control-panel {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      z-index: 99;
-      background: rgba(18, 18, 18, 0.92);
-      backdrop-filter: blur(12px);
+      position: absolute; top: 20px; left: 20px; z-index: 99;
+      background: rgba(18, 18, 18, 0.92); backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 20px;
-      border-radius: 12px;
-      width: 340px;
+      padding: 20px; border-radius: 12px; width: 340px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     }
     .control-panel h2 {
-      font-size: 15px;
-      margin-top: 0;
-      margin-bottom: 15px;
-      color: #4CAF50;
-      text-transform: uppercase;
-      letter-spacing: 1px;
+      font-size: 15px; margin-top: 0; margin-bottom: 15px;
+      color: #4CAF50; text-transform: uppercase; letter-spacing: 1px;
     }
-    .slider-group {
-      margin-bottom: 15px;
+    .section-label {
+      font-size: 11px; color: #8a8a8a; text-transform: uppercase;
+      letter-spacing: 1px; margin: 16px 0 8px 0;
     }
-    .slider-group label {
-      display: block;
-      font-size: 13px;
-      margin-bottom: 8px;
-      color: #b0b0b0;
+    select#plajSelect {
+      width: 100%; padding: 9px 10px; border-radius: 8px;
+      background: #1e1e1e; color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px; cursor: pointer;
     }
-    .slider-group input, .slider-group select {
-      width: 100%;
-      cursor: pointer;
-      padding: 8px;
-      background: #1e1e1e;
-      color: #e0e0e0;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      transition: all 0.3s ease;
-    }
-    .slider-group select:hover {
-      border-color: #4CAF50;
-    }
-    .stats-box {
-      margin-top: 15px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      font-size: 13px;
-    }
+    .slider-group { margin-bottom: 15px; }
+    .slider-group label { display: block; font-size: 13px; margin-bottom: 8px; color: #b0b0b0; }
+    .slider-group input { width: 100%; cursor: pointer; transition: accent-color 0.3s ease; }
+
+    .stats-box { margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; }
     .impact-metrics {
-      margin-top: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      border-left: 3px solid #ef5350;
+      margin-top: 10px; background: rgba(255, 255, 255, 0.05); padding: 10px;
+      border-radius: 8px; font-size: 12px; border-left: 3px solid #ef5350;
       transition: all 0.3s ease;
     }
   </style>
@@ -88,20 +52,17 @@
 
   <div class="control-panel">
     <h2>COP31 Simülasyon Laboratuvarı</h2>
-    
-    <!-- Tekilleştirilmiş Plaj Filtreleme Menüsü -->
-    <div class="slider-group">
-      <label>Hedef Plaj / Bölge Seçimi:</label>
-      <select id="beachSelect">
-        <option value="all">🌍 Tüm Plajlar (Genel Görünüm)</option>
-      </select>
-    </div>
 
+    <div class="section-label">Plaj Filtresi</div>
+    <select id="plajSelect">
+      <option value="__ALL__">Tüm Plajlar</option>
+    </select>
+
+    <div class="section-label">Koruma Senaryosu</div>
     <div class="slider-group">
       <label>Kıyı Yapılaşma Kısıtı (Rehex): <span id="rehexVal">0</span>%</label>
       <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
     </div>
-
     <div class="slider-group">
       <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
       <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
@@ -121,19 +82,24 @@
     require([
       "esri/WebScene",
       "esri/views/SceneView",
-      "esri/geometry/geometryEngine"
-    ], function(WebScene, SceneView, geometryEngine) {
+      "esri/layers/GraphicsLayer",
+      "esri/Graphic",
+      "esri/geometry/geometryEngine",
+      "esri/geometry/Extent"
+    ], function(WebScene, SceneView, GraphicsLayer, Graphic, geometryEngine, Extent) {
 
-      const scene = new WebScene({
-        portalItem: {
-          id: "c624627b97ab408e8becc96792b74d4d"
-        }
-      });
+      // ---- Ayarlanabilir kamera parametreleri (isteğinize göre buradan ince ayar yapın) ----
+      const ZOOM_SCALE = 4500;     // küçük değer = daha yakın zoom (deniz daha az görünür)
+      const ZOOM_TILT = 68;        // yere daha yakın/dalış hissi için 60-75 arası deneyin
+      const ZOOM_DURATION = 2800;  // ms, "tatlı" geçiş için
+      const ZOOM_EASING = "in-out-cubic";
 
-      const view = new SceneView({
-        container: "viewDiv",
-        map: scene
-      });
+      const scene = new WebScene({ portalItem: { id: "c624627b97ab408e8becc96792b74d4d" } });
+      const view = new SceneView({ container: "viewDiv", map: scene });
+
+      // Seçili plaj grubunu vurgulamak için ayrı bir katman
+      const highlightLayer = new GraphicsLayer({ elevationInfo: { mode: "relative-to-ground", offset: 2 } });
+      scene.add(highlightLayer);
 
       const rehexSlider = document.getElementById("rehexSlider");
       const lightSlider = document.getElementById("lightSlider");
@@ -141,150 +107,154 @@
       const lightValDisplay = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
       const impactText = document.getElementById("impactText");
-      const beachSelect = document.getElementById("beachSelect");
+      const plajSelect = document.getElementById("plajSelect");
 
       function getDynamicColor(val) {
-        if (val < 35) return "#ef5350"; 
-        if (val < 75) return "#ffa726"; 
-        return "#66bb6a";              
+        if (val < 35) return "#ef5350";
+        if (val < 75) return "#ffa726";
+        return "#66bb6a";
       }
 
+      let targetLayer = null;
+      let baseRenderer = null;
+      let initialCamera = null;
+
       view.when(() => {
+        initialCamera = view.camera.clone();
+
         scene.when(() => {
-          let targetLayer = null;
           scene.allLayers.forEach((layer) => {
-            if (layer.type === "feature") {
-              targetLayer = layer;
-            }
+            if (layer.type === "feature") targetLayer = layer;
           });
 
-          if (targetLayer) {
-            targetLayer.load().then(() => {
-              // ArcGIS Pro'dan gelen ORİJİNAL RENDERER (Renkler ve sınıflandırma tam burada korunuyor)
-              const baseRenderer = targetLayer.renderer.clone();
+          if (!targetLayer) {
+            console.error("❌ 'feature' tipinde katman bulunamadı.");
+            return;
+          }
 
-              // 1. TEKİLLEŞTİRME (Set kullanarak menüdeki mükerrer kayıtları engelliyoruz)
-              const query = targetLayer.createQuery();
-              query.where = "1=1";
-              query.outFields = ["Plaj_ID", "Plaj_Adi"];
-              query.returnDistinctValues = true;
-              query.orderByFields = ["Plaj_Adi"];
+          targetLayer.load().then(() => {
+            baseRenderer = targetLayer.renderer.clone();
 
-              targetLayer.queryFeatures(query).then((response) => {
-                const uniqueBeachNames = new Set();
-                response.features.forEach((feature) => {
-                  const pAdi = feature.attributes.Plaj_Adi;
-                  if (pAdi && !uniqueBeachNames.has(pAdi)) {
-                    uniqueBeachNames.add(pAdi);
-                    const option = document.createElement("option");
-                    option.value = pAdi;
-                    option.textContent = pAdi;
-                    beachSelect.appendChild(option);
-                  }
-                });
+            // ---- Plaj listesini doldur (aynı isimliler tek satırda toplanır) ----
+            const query = targetLayer.createQuery();
+            query.where = "1=1";
+            query.outFields = ["Plaj_ID", "Plaj_Adi"];
+            query.returnGeometry = false;
+
+            targetLayer.queryFeatures(query).then((result) => {
+              const uniqueNames = [...new Set(
+                result.features.map(f => f.attributes.Plaj_Adi).filter(Boolean)
+              )].sort();
+
+              uniqueNames.forEach((name) => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                plajSelect.appendChild(opt);
               });
+            });
 
-              // 2. ZOOM VE GENEL GÖRÜNÜM DÜZELTMESİ
-              beachSelect.addEventListener("change", (e) => {
-                const selectedBeach = e.target.value;
+            // ---- Simülasyon (slider) mantığı — öncekiyle aynı ----
+            function updateLayerSimulation() {
+              const rVal = parseInt(rehexSlider.value);
+              const lVal = parseInt(lightSlider.value);
 
-                if (selectedBeach === "all") {
-                  targetLayer.definitionExpression = null;
-                  // Tüm katmanın kapsama alanını (extent) alarak tam genel görünüme dönüyoruz
-                  targetLayer.queryExtent().then((result) => {
-                    if (result.extent) {
-                      view.goTo({
-                        target: result.extent,
-                        tilt: 30 // Genel görünüm için ideal açı
-                      }, {
-                        duration: 1500,
-                        easing: "in-out-cubic"
-                      });
-                    }
-                  });
-                } else {
-                  targetLayer.definitionExpression = `Plaj_Adi = '${selectedBeach}'`;
+              rehexValDisplay.innerText = rVal;
+              lightValDisplay.innerText = lVal;
+              rehexSlider.style.accentColor = getDynamicColor(rVal);
+              lightSlider.style.accentColor = getDynamicColor(lVal);
 
-                  targetLayer.queryFeatures({
-                    where: `Plaj_Adi = '${selectedBeach}'`,
-                    returnGeometry: true
-                  }).then((result) => {
-                    if (result.features.length > 0) {
-                      const geometries = result.features.map(f => f.geometry);
-                      const unionGeometry = geometryEngine.union(geometries);
-                      const centerPoint = unionGeometry ? unionGeometry.centroid : result.features[0].geometry.centroid;
+              const avgProtection = (rVal + lVal) / 2;
+              const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
 
-                      view.goTo({
-                        target: centerPoint,
-                        scale: 3000, // Katmanın dibine giren net yakın mesafe
-                        tilt: 65     // Detayları gösteren 3D açı
-                      }, {
-                        duration: 1800,
-                        easing: "in-out-cubic"
-                      });
-                    }
-                  });
-                }
-              });
-
-              function updateLayerSimulation() {
-                const rVal = parseInt(rehexSlider.value);
-                const lVal = parseInt(lightSlider.value);
-
-                rehexValDisplay.innerText = rVal;
-                lightValDisplay.innerText = lVal;
-
-                rehexSlider.style.accentColor = getDynamicColor(rVal);
-                lightSlider.style.accentColor = getDynamicColor(lVal);
-
-                const avgProtection = (rVal + lVal) / 2;
-                const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
-
-                let statusHTML = "";
-                let statusColor = "#ef5350";
-
-                if (rVal === 0 && lVal === 0) {
-                  statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
-                  statusColor = "#ef5350";
-                } else if (avgProtection <= 30) {
-                  statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
-                  statusColor = "#ffa726";
-                } else if (avgProtection <= 70) {
-                  statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
-                  statusColor = "#ffee58";
-                } else if (avgProtection < 95) {
-                  statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
-                  statusColor = "#9ccc65";
-                } else {
-                  statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
-                  statusColor = "#66bb6a";
-                }
-
-                statusText.innerHTML = statusHTML;
-                statusText.style.color = statusColor;
-                impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
-                impactText.style.borderLeftColor = statusColor;
-
-                // 3. ORİJİNAL RENDERER ÜZERİNDEN DOĞRU YÜKSEKLİK (EXTRUSION) AYARI
-                let activeRenderer = baseRenderer.clone();
-                const scaleFactor = 1 - (avgProtection / 100) * 0.5;
-
-                activeRenderer.visualVariables = [{
-                  type: "size",
-                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
-                  target: "extrusion",
-                  unit: "meters"
-                }];
-
-                targetLayer.renderer = activeRenderer;
+              let statusHTML = "", statusColor = "#ef5350";
+              if (rVal === 0 && lVal === 0) {
+                statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
+                statusColor = "#ef5350";
+              } else if (avgProtection <= 30) {
+                statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
+                statusColor = "#ffa726";
+              } else if (avgProtection <= 70) {
+                statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
+                statusColor = "#ffee58";
+              } else if (avgProtection < 95) {
+                statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
+                statusColor = "#9ccc65";
+              } else {
+                statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
+                statusColor = "#66bb6a";
               }
 
-              updateLayerSimulation();
+              statusText.innerHTML = statusHTML;
+              statusText.style.color = statusColor;
+              impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
+              impactText.style.borderLeftColor = statusColor;
 
-              rehexSlider.addEventListener("input", updateLayerSimulation);
-              lightSlider.addEventListener("input", updateLayerSimulation);
+              let activeRenderer = baseRenderer.clone();
+              const scaleFactor = 1 - (avgProtection / 100) * 0.5;
+              activeRenderer.visualVariables = [{
+                type: "size",
+                valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
+                target: "extrusion",
+                unit: "meters"
+              }];
+              targetLayer.renderer = activeRenderer;
+            }
+
+            updateLayerSimulation();
+            rehexSlider.addEventListener("input", updateLayerSimulation);
+            lightSlider.addEventListener("input", updateLayerSimulation);
+
+            // ---- Plaj filtresi + grup vurgusu + sinematik zoom ----
+            plajSelect.addEventListener("change", async () => {
+              const selected = plajSelect.value;
+              highlightLayer.removeAll();
+
+              if (selected === "__ALL__") {
+                targetLayer.definitionExpression = null;
+                view.goTo(initialCamera, { duration: ZOOM_DURATION, easing: ZOOM_EASING });
+                return;
+              }
+
+              const safeName = selected.replace(/'/g, "''");
+              const fq = targetLayer.createQuery();
+              fq.where = `Plaj_Adi = '${safeName}'`;
+              fq.returnGeometry = true;
+              fq.outFields = ["*"];
+              fq.outSpatialReference = view.spatialReference;
+
+              const fres = await targetLayer.queryFeatures(fq);
+              if (fres.features.length === 0) return;
+
+              // Filtre: sadece seçili plajı(ları) göster
+              targetLayer.definitionExpression = `Plaj_Adi = '${safeName}'`;
+
+              // Aynı isimli birden fazla poligon varsa görsel olarak tek grup gibi birleştir
+              const geoms = fres.features.map(f => f.geometry);
+              let unionGeom = geoms.length > 1 ? geometryEngine.union(geoms) : geoms[0];
+
+              highlightLayer.add(new Graphic({
+                geometry: unionGeom,
+                symbol: {
+                  type: "polygon-3d",
+                  symbolLayers: [{
+                    type: "fill",
+                    material: { color: [255, 255, 255, 0] },
+                    outline: { color: [76, 209, 165, 0.95], size: 3 }
+                  }]
+                }
+              }));
+
+              // Yakın, alçak açılı, tatlı geçişli kamera
+              const centroid = unionGeom.extent.center;
+              view.goTo({
+                target: centroid,
+                scale: ZOOM_SCALE,
+                tilt: ZOOM_TILT,
+                heading: view.camera.heading
+              }, { duration: ZOOM_DURATION, easing: ZOOM_EASING });
             });
-          }
+          });
         });
       });
 
