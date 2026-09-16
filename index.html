@@ -51,10 +51,18 @@
       margin-bottom: 8px;
       color: #b0b0b0;
     }
-    .slider-group input {
+    .slider-group input, .slider-group select {
       width: 100%;
       cursor: pointer;
-      transition: accent-color 0.3s ease;
+      padding: 8px;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      transition: all 0.3s ease;
+    }
+    .slider-group select:hover {
+      border-color: #4CAF50;
     }
     .stats-box {
       margin-top: 15px;
@@ -81,6 +89,14 @@
   <div class="control-panel">
     <h2>COP31 Simülasyon Laboratuvarı</h2>
     
+    <!-- Plaj Filtreleme Menüsü -->
+    <div class="slider-group">
+      <label>Hedef Plaj / Bölge Seçimi:</label>
+      <select id="beachSelect">
+        <option value="all">🌍 Tüm Plajlar (Genel Görünüm)</option>
+      </select>
+    </div>
+
     <div class="slider-group">
       <label>Kıyı Yapılaşma Kısıtı (Rehex): <span id="rehexVal">0</span>%</label>
       <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
@@ -124,6 +140,7 @@
       const lightValDisplay = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
       const impactText = document.getElementById("impactText");
+      const beachSelect = document.getElementById("beachSelect");
 
       function getDynamicColor(val) {
         if (val < 35) return "#ef5350"; 
@@ -142,8 +159,60 @@
 
           if (targetLayer) {
             targetLayer.load().then(() => {
-              // ArcGIS Pro'dan gelen orijinal renderer yapısını klonluyoruz
               const baseRenderer = targetLayer.renderer.clone();
+
+              // 1. Plaj listesini katmandan dinamik olarak çek ve dropdown'ı doldur
+              const query = targetLayer.createQuery();
+              query.where = "1=1";
+              query.outFields = ["Plaj_ID", "Plaj_Adi"];
+              query.returnDistinctValues = true;
+              query.orderByFields = ["Plaj_Adi"];
+
+              targetLayer.queryFeatures(query).then((response) => {
+                response.features.forEach((feature) => {
+                  const pAdi = feature.attributes.Plaj_Adi;
+                  if (pAdi) {
+                    const option = document.createElement("option");
+                    option.value = pAdi;
+                    option.textContent = pAdi;
+                    beachSelect.appendChild(option);
+                  }
+                });
+              });
+
+              // 2. Dropdown değişim olayı (Filtreleme + Yumuşak Zoom)
+              beachSelect.addEventListener("change", (e) => {
+                const selectedBeach = e.target.value;
+
+                if (selectedBeach === "all") {
+                  targetLayer.definitionExpression = null;
+                  targetLayer.queryExtent().then((result) => {
+                    if (result.extent) {
+                      view.goTo({ target: result.extent, zoom: view.zoom - 1 }, { duration: 1500, easing: "in-out-cubic" });
+                    }
+                  });
+                } else {
+                  // SQL tanım ifadesi ile katmanı filtrele
+                  targetLayer.definitionExpression = `Plaj_Adi = '${selectedBeach}'`;
+
+                  // Seçilen plajın geometrisini bul ve oraya uç
+                  targetLayer.queryFeatures({
+                    where: `Plaj_Adi = '${selectedBeach}'`,
+                    returnGeometry: true
+                  }).then((result) => {
+                    if (result.features.length > 0) {
+                      view.goTo({
+                        target: result.features,
+                        scale: 12000, // Odaklanma yakınlık ölçeği
+                        tilt: 45      // Haritaya şık bir 3D açı verir
+                      }, {
+                        duration: 1800,
+                        easing: "in-out-cubic"
+                      });
+                    }
+                  });
+                }
+              });
 
               function updateLayerSimulation() {
                 const rVal = parseInt(rehexSlider.value);
@@ -183,11 +252,9 @@
                 impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
                 impactText.style.borderLeftColor = statusColor;
 
-                // PRO RENDERER'INI EZMEDEN, SADECE BOYUTU (EXTRUSION) GÜNCELLİYORUZ:
                 let activeRenderer = baseRenderer.clone();
-                const scaleFactor = 1 - (avgProtection / 100) * 0.5; // Koruma arttıkça yükseklik orantılı iner
+                const scaleFactor = 1 - (avgProtection / 100) * 0.5;
 
-                // Visual Variables (Görsel Değişkenler) ekleyerek orijinal renkleri koruyoruz
                 activeRenderer.visualVariables = [{
                   type: "size",
                   valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
@@ -198,7 +265,6 @@
                 targetLayer.renderer = activeRenderer;
               }
 
-              updateLayerGIS = updateLayerSimulation;
               updateLayerSimulation();
 
               rehexSlider.addEventListener("input", updateLayerSimulation);
