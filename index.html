@@ -1,427 +1,175 @@
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
   <meta charset="utf-8" />
-
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-
   <title>COP31 Caretta Simülasyon Motoru</title>
-
   
-
   <style>
-
     body, html {
-
       margin: 0;
-
       padding: 0;
-
       width: 100%;
-
       height: 100%;
-
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-
       background: #121212;
-
       color: #e0e0e0;
-
-      overflow: hidden;
-
     }
-
     #viewDiv {
-
       width: 100%;
-
       height: 100%;
-
       position: absolute;
-
     }
-
     .control-panel {
-
       position: absolute;
-
       top: 20px;
-
       left: 20px;
-
       z-index: 99;
-
-      background: rgba(18, 18, 18, 0.92);
-
+      background: rgba(18, 18, 18, 0.9);
       backdrop-filter: blur(12px);
-
       border: 1px solid rgba(255, 255, 255, 0.15);
-
       padding: 20px;
-
       border-radius: 12px;
-
-      width: 340px;
-
-      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-
+      width: 320px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
-
     .control-panel h2 {
-
       font-size: 15px;
-
       margin-top: 0;
-
-      margin-bottom: 15px;
-
       color: #4CAF50;
-
       text-transform: uppercase;
-
       letter-spacing: 1px;
-
     }
-
     .slider-group {
-
       margin-bottom: 15px;
-
     }
-
     .slider-group label {
-
       display: block;
-
       font-size: 13px;
-
-      margin-bottom: 8px;
-
+      margin-bottom: 5px;
       color: #b0b0b0;
-
     }
-
     .slider-group input {
-
       width: 100%;
-
+      accent-color: #4CAF50;
       cursor: pointer;
-
-      transition: accent-color 0.3s ease;
-
     }
-
     .stats-box {
-
       margin-top: 15px;
-
-      padding-top: 12px;
-
+      padding-top: 10px;
       border-top: 1px solid rgba(255,255,255,0.1);
-
       font-size: 13px;
-
     }
-
-    .impact-metrics {
-
-      margin-top: 10px;
-
-      background: rgba(255, 255, 255, 0.05);
-
-      padding: 10px;
-
-      border-radius: 8px;
-
-      font-size: 12px;
-
-      border-left: 3px solid #ef5350;
-
-      transition: all 0.3s ease;
-
+    .stats-box span {
+      font-weight: bold;
+      color: #FF5722;
     }
-
   </style>
 
-
-
   <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/dark/main.css" />
-
   <script src="https://js.arcgis.com/4.28/"></script>
-
 </head>
-
 <body>
 
-
-
   <div class="control-panel">
-
     <h2>COP31 Simülasyon Laboratuvarı</h2>
-
     
-
     <div class="slider-group">
-
       <label>Kıyı Yapılaşma Kısıtı (Rehex): <span id="rehexVal">0</span>%</label>
-
       <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
-
     </div>
-
-
 
     <div class="slider-group">
-
-      <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
-
+      <label>Işık Kirliliği Azaltma Oranı: <span id="lightVal">0</span>%</label>
       <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
-
     </div>
-
-
 
     <div class="stats-box">
-
-      <div>Durum: <span id="statusText" style="color: #ef5350;">Kritik Tehdit Altında</span></div>
-
-      <div class="impact-metrics" id="impactText">
-
-        🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
-
-      </div>
-
+      <div>Simüle Edilen Risk Durumu: <span id="statusText" style="color:#4CAF50;">Aktif (Normal)</span></div>
     </div>
-
   </div>
-
-
 
   <div id="viewDiv"></div>
 
-
-
   <script>
-
     require([
-
       "esri/WebScene",
-
-      "esri/views/SceneView"
-
-    ], function(WebScene, SceneView) {
-
-
+      "esri/views/SceneView",
+      "esri/layers/FeatureLayer"
+    ], function(WebScene, SceneView, FeatureLayer) {
 
       const scene = new WebScene({
-
         portalItem: {
-
           id: "c624627b97ab408e8becc96792b74d4d"
-
         }
-
       });
-
-
 
       const view = new SceneView({
-
         container: "viewDiv",
-
         map: scene
-
       });
-
-
 
       const rehexSlider = document.getElementById("rehexSlider");
-
       const lightSlider = document.getElementById("lightSlider");
-
-      const rehexValDisplay = document.getElementById("rehexVal");
-
-      const lightValDisplay = document.getElementById("lightVal");
-
+      const rehexVal = document.getElementById("rehexVal");
+      const lightVal = document.getElementById("lightVal");
       const statusText = document.getElementById("statusText");
 
-      const impactText = document.getElementById("impactText");
-
-
-
-      function getDynamicColor(val) {
-
-        if (val < 35) return "#ef5350"; 
-
-        if (val < 75) return "#ffa726"; 
-
-        return "#66bb6a";              
-
-      }
-
-
-
+      // Sahne yüklendiğinde ana risk katmanını yakalayalım
       view.when(() => {
-
         scene.when(() => {
+          // WebScene içindeki katmanı buluyoruz
+          const layer = scene.layers.find(l => l.type === "feature");
+          
+          if (layer) {
+            function updateLayerSimulation() {
+              const rVal = parseInt(rehexSlider.value);
+              const lVal = parseInt(lightSlider.value);
 
-          let targetLayer = null;
+              rehexVal.innerText = rVal;
+              lightVal.innerText = lVal;
 
-          scene.allLayers.forEach((layer) => {
+              // Çarpanlar hesaplanıyor (Koruma arttıkça risk çarpanı düşer)
+              const rFactor = 1 - (rVal / 100);
+              const lFactor = 1 - (lVal / 100);
 
-            if (layer.type === "feature") {
+              // ArcGIS Arcade tabanlı dinamik extrusion (sütun boyu) güncellemesi
+              layer.renderer = {
+                type: "simple",
+                symbol: {
+                  type: "polygon-3d",
+                  symbolLayers: [{
+                    type: "extrude",
+                    // Rehex_Score ve Risk_Skoru üzerinden anlık simüle yükseklik hesabı
+                    size: `($feature.Risk_Skoru * ${rFactor} * 15) + ($feature.Rehex_Score * ${lFactor} * 10)`,
+                    material: { 
+                      color: rVal > 50 ? [76, 175, 80, 0.8] : [244, 67, 54, 0.8] // Koruma yüksekse Yeşil, düşükse Kırmızı
+                    },
+                    edges: {
+                      type: "solid",
+                      color: [50, 50, 50, 0.5],
+                      size: 1
+                    }
+                  }]
+                }
+              };
 
-              targetLayer = layer;
-
+              if(rVal > 50 || lVal > 50) {
+                statusText.innerText = "Optimum Koruma Sağlandı";
+                statusText.style.color = "#4CAF50";
+              } else {
+                statusText.innerText = "Yüksek Tehdit Altında";
+                statusText.style.color = "#FF5722";
+              }
             }
 
-          });
-
-
-
-          if (targetLayer) {
-
-            targetLayer.load().then(() => {
-
-              // ArcGIS Pro'dan gelen orijinal renderer yapısını klonluyoruz
-
-              const baseRenderer = targetLayer.renderer.clone();
-
-
-
-              function updateLayerSimulation() {
-
-                const rVal = parseInt(rehexSlider.value);
-
-                const lVal = parseInt(lightSlider.value);
-
-
-
-                rehexValDisplay.innerText = rVal;
-
-                lightValDisplay.innerText = lVal;
-
-
-
-                rehexSlider.style.accentColor = getDynamicColor(rVal);
-
-                lightSlider.style.accentColor = getDynamicColor(lVal);
-
-
-
-                const avgProtection = (rVal + lVal) / 2;
-
-                const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
-
-
-
-                let statusHTML = "";
-
-                let statusColor = "#ef5350";
-
-
-
-                if (rVal === 0 && lVal === 0) {
-
-                  statusHTML = "⚠️ <b>Kritik Tehdit:</b> Yuvalama alanları baskı altında.";
-
-                  statusColor = "#ef5350";
-
-                } else if (avgProtection <= 30) {
-
-                  statusHTML = "📉 <b>Düşük Koruma:</b> Habitat kaybı sürüyor.";
-
-                  statusColor = "#ffa726";
-
-                } else if (avgProtection <= 70) {
-
-                  statusHTML = "⚖️ <b>Dengeli Senaryo:</b> Kısmi iyileşme gözleniyor.";
-
-                  statusColor = "#ffee58";
-
-                } else if (avgProtection < 95) {
-
-                  statusHTML = "🌿 <b>Yüksek Koruma:</b> Yuvalama başarı oranı artıyor.";
-
-                  statusColor = "#9ccc65";
-
-                } else {
-
-                  statusHTML = "🌟 <b>İdeal Ekosistem:</b> COP31 Hedeflerine Tam Uyum!";
-
-                  statusColor = "#66bb6a";
-
-                }
-
-
-
-                statusText.innerHTML = statusHTML;
-
-                statusText.style.color = statusColor;
-
-                impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
-
-                impactText.style.borderLeftColor = statusColor;
-
-
-
-                // PRO RENDERER'INI EZMEDEN, SADECE BOYUTU (EXTRUSION) GÜNCELLİYORUZ:
-
-                let activeRenderer = baseRenderer.clone();
-
-                const scaleFactor = 1 - (avgProtection / 100) * 0.5; // Koruma arttıkça yükseklik orantılı iner
-
-
-
-                // Visual Variables (Görsel Değişkenler) ekleyerek orijinal renkleri koruyoruz
-
-                activeRenderer.visualVariables = [{
-
-                  type: "size",
-
-                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
-
-                  target: "extrusion",
-
-                  unit: "meters"
-
-                }];
-
-
-
-                targetLayer.renderer = activeRenderer;
-
-              }
-
-
-
-              updateLayerGIS = updateLayerSimulation;
-
-              updateLayerSimulation();
-
-
-
-              rehexSlider.addEventListener("input", updateLayerSimulation);
-
-              lightSlider.addEventListener("input", updateLayerSimulation);
-
-            });
-
+            rehexSlider.addEventListener("input", updateLayerSimulation);
+            lightSlider.addEventListener("input", updateLayerSimulation);
           }
-
         });
-
       });
 
-
-
     });
-
   </script>
-
 </body>
-
 </html>
