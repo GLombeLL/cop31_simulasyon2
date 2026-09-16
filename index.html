@@ -160,6 +160,9 @@
 
           if (targetLayer) {
             targetLayer.load().then(() => {
+              // ArcGIS Pro'dan gelen ORİJİNAL RENDERER (Renkler ve sınıflandırma tam burada korunuyor)
+              const baseRenderer = targetLayer.renderer.clone();
+
               // 1. TEKİLLEŞTİRME (Set kullanarak menüdeki mükerrer kayıtları engelliyoruz)
               const query = targetLayer.createQuery();
               query.where = "1=1";
@@ -181,15 +184,22 @@
                 });
               });
 
-              // 2. YAKIN VE MERKEZLENDİRİLMİŞ ZOOM (Denizi ortada bırakmayan akıllı kamera)
+              // 2. ZOOM VE GENEL GÖRÜNÜM DÜZELTMESİ
               beachSelect.addEventListener("change", (e) => {
                 const selectedBeach = e.target.value;
 
                 if (selectedBeach === "all") {
                   targetLayer.definitionExpression = null;
+                  // Tüm katmanın kapsama alanını (extent) alarak tam genel görünüme dönüyoruz
                   targetLayer.queryExtent().then((result) => {
                     if (result.extent) {
-                      view.goTo({ target: result.extent, zoom: view.zoom - 1 }, { duration: 1500, easing: "in-out-cubic" });
+                      view.goTo({
+                        target: result.extent,
+                        tilt: 30 // Genel görünüm için ideal açı
+                      }, {
+                        duration: 1500,
+                        easing: "in-out-cubic"
+                      });
                     }
                   });
                 } else {
@@ -206,8 +216,8 @@
 
                       view.goTo({
                         target: centerPoint,
-                        scale: 2500, // Katmanın dibine giren yakın mesafe
-                        tilt: 70     // Detayları net gösteren 3D açı
+                        scale: 3000, // Katmanın dibine giren net yakın mesafe
+                        tilt: 65     // Detayları gösteren 3D açı
                       }, {
                         duration: 1800,
                         easing: "in-out-cubic"
@@ -255,32 +265,18 @@
                 impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
                 impactText.style.borderLeftColor = statusColor;
 
-                // 3. SAHİL POLİGONLARI İÇİN KIRMIZIDAN YEŞİLE DÖNÜŞEN RENDERER & DÜZGÜN BOYUT
-                // Koruma arttıkça renk Kırmızı (244,67,54) -> Sarı/Turuncu -> Yeşil (76,175,80) evrilir.
-                let red = Math.round(244 - (avgProtection / 100) * (244 - 76));
-                let green = Math.round(67 + (avgProtection / 100) * (175 - 67));
-                let blue = Math.round(54 + (avgProtection / 100) * (80 - 54));
-                const dynamicPolygonColor = [red, green, blue, 0.85];
+                // 3. ORİJİNAL RENDERER ÜZERİNDEN DOĞRU YÜKSEKLİK (EXTRUSION) AYARI
+                let activeRenderer = baseRenderer.clone();
+                const scaleFactor = 1 - (avgProtection / 100) * 0.5;
 
-                // Boyutun aşırı küçülmesini engellemek için güvenli ve dolgun ölçek faktörü
-                const scaleFactor = 0.85 + (avgProtection / 100) * 0.15;
+                activeRenderer.visualVariables = [{
+                  type: "size",
+                  valueExpression: `$feature.Risk_Skoru * ${scaleFactor}`,
+                  target: "extrusion",
+                  unit: "meters"
+                }];
 
-                targetLayer.renderer = {
-                  type: "simple",
-                  symbol: {
-                    type: "polygon-3d",
-                    symbolLayers: [{
-                      type: "extrude",
-                      size: `$feature.Risk_Skoru * ${scaleFactor}`,
-                      material: { color: dynamicPolygonColor },
-                      edges: {
-                        type: "solid",
-                        color: [30, 30, 30, 0.4],
-                        size: 1
-                      }
-                    }]
-                  }
-                };
+                targetLayer.renderer = activeRenderer;
               }
 
               updateLayerSimulation();
