@@ -13,6 +13,11 @@
     }
     #viewDiv { width: 100%; height: 100%; position: absolute; }
 
+    /* ArcGIS sol üstteki tüm kalıntıları kesin olarak gizle */
+    .esri-ui-top-left {
+      display: none !important;
+    }
+
     .control-panel {
       position: absolute; top: 20px; left: 20px; z-index: 99;
       background: rgba(18, 18, 18, 0.92); backdrop-filter: blur(12px);
@@ -100,7 +105,7 @@
   <!-- Tebrik / Şov Ekran Ortası Modalı -->
   <div id="celebrationOverlay">
     <div class="big-emoji">🐢🏆</div>
-    <h3>TEBRİKLER, COP31 HEDEFLERİNE ULAŞILDI!</h3>
+    <h3>TEBRİKLER, COP31 HEDEFLERE ULAŞILDI!</h3>
     <p>Kıyı yapılaşması ve ışık kirliliği sıfırlandı.<br>Güvenli habitat sağlandı, caretta caretta yavruları güvenle denize ulaşıyor!</p>
   </div>
 
@@ -167,9 +172,6 @@
 
       const scene = new WebScene({ portalItem: { id: "c624627b97ab408e8becc96792b74d4d" } });
       const view = new SceneView({ container: "viewDiv", map: scene });
-
-      // Sol üstü tamamen temizle, sadece zoom bileşenini sağ üste ver
-      view.ui.components = ["zoom"];
 
       const highlightLayer = new GraphicsLayer({ elevationInfo: { mode: "relative-to-ground", offset: 2 } });
       scene.add(highlightLayer);
