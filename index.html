@@ -44,35 +44,51 @@
       transition: all 0.3s ease;
     }
 
-    /* Şov Efekti Kutlama Paneli (JavaScript ile inline kontrol edilecek) */
+    /* Şov Efekti Ekran Ortası Modal Paneli */
     #celebrationOverlay {
-      position: absolute;
-      bottom: -150px;
+      position: fixed;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
-      background: rgba(46, 125, 50, 0.95);
-      backdrop-filter: blur(10px);
+      transform: translate(-50%, -50%) scale(0.7);
+      background: rgba(18, 18, 18, 0.95);
+      backdrop-filter: blur(16px);
       color: #fff;
-      padding: 15px 30px;
-      border-radius: 30px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-      z-index: 9999;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      border: 1px solid rgba(255,255,255,0.4);
+      padding: 35px 50px;
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 40px rgba(102, 187, 106, 0.3);
+      z-index: 10000;
+      text-align: center;
+      opacity: 0;
       pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 2px solid rgba(102, 187, 106, 0.6);
     }
-    #celebrationOverlay span {
-      font-size: 28px;
+    #celebrationOverlay.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #celebrationOverlay .big-emoji {
+      font-size: 64px;
+      margin-bottom: 15px;
+      display: inline-block;
       animation: bounce 1s infinite alternate;
+    }
+    #celebrationOverlay h3 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+      color: #66bb6a;
+      letter-spacing: 0.5px;
+    }
+    #celebrationOverlay p {
+      margin: 0;
+      font-size: 14px;
+      color: #c8e6c9;
+      line-height: 1.5;
     }
     @keyframes bounce {
       from { transform: translateY(0); }
-      to { transform: translateY(-6px); }
+      to { transform: translateY(-10px); }
     }
   </style>
 
@@ -81,13 +97,11 @@
 </head>
 <body>
 
-  <!-- Tebrik / Şov Katmanı -->
+  <!-- Tebrik / Şov Ekran Ortası Modalı -->
   <div id="celebrationOverlay">
-    <span>🐢</span>
-    <div>
-      <div>Tebrikler! COP31 Hedeflerine Ulaşıldı!</div>
-      <div style="font-size: 11px; font-weight: 400; color: #c8e6c9;">Güvenli habitat sağlandı, carettalar denize ulaşıyor. Teşekkürler!</div>
-    </div>
+    <div class="big-emoji">🐢🏆</div>
+    <h3>TEBRİKLER, COP31 HEDEFLERİNE ULAŞILDI!</h3>
+    <p>Kıyı yapılaşması ve ışık kirliliği sıfırlandı.<br>Güvenli habitat sağlandı, caretta caretta yavruları güvenle denize ulaşıyor!</p>
   </div>
 
   <div class="control-panel">
@@ -215,11 +229,11 @@
 
               const avgProtection = (rVal + lVal) / 2; 
 
-              // --- ŞOV EFEKTİ KONTROLÜ (Doğrudan Inline Stil ile) ---
+              // --- ŞOV EFEKTİ KONTROLÜ (Sadece her iki slider da %100 olduğunda tetiklenir) ---
               if (rVal === 100 && lVal === 100) {
-                celebrationOverlay.style.bottom = "30px";
+                celebrationOverlay.classList.add("show");
               } else {
-                celebrationOverlay.style.bottom = "-150px";
+                celebrationOverlay.classList.remove("show");
               }
 
               const savedHatchlings = Math.round(120 + (avgProtection * 14.5));
