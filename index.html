@@ -185,10 +185,10 @@
               impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
               impactText.style.borderLeftColor = statusColor;
 
-              // KRİTİK DÜZELTME: ArcGIS Pro'daki orijinal ölçeği ezmek yerine, 
-              // koruma arttıkça (0'dan 100'e) boyutu orantılı bir şekilde filtreliyoruz.
-              // Böylece ilk açılıştaki o devasa "rezidans" ölçeği bozulmuyor!
-              const scaleFactor = 1 - (avgProtection / 125); // 0'da tam boy, 100'de küçülür/değişir
+              // DÜZELTME: Boyutu asla sıfırlamıyoruz. 
+              // Koruma 0 iken 1.0 (ArcGIS Pro'daki orijinal tam boyutu), 
+              // Koruma 100 iken en az 0.4 oranında kalmasını sağlıyoruz (asla yok olmaz).
+              const scaleFactor = 1 - (avgProtection / 100) * 0.6; // 1.0 ile 0.4 arasında ölçeklenir
 
               targetLayer.renderer = {
                 type: "simple",
@@ -196,7 +196,6 @@
                   type: "polygon-3d",
                   symbolLayers: [{
                     type: "extrude",
-                    // Risk_Skoru alanını doğrudan Arcade ifadesiyle ArcGIS Pro orijinal ölçeğinde tutuyoruz
                     size: `$feature.Risk_Skoru * ${scaleFactor}`,
                     material: { color: polygonColor },
                     edges: {
