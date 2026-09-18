@@ -237,9 +237,15 @@
       "esri/geometry/geometryEngine"
     ], function(WebScene, SceneView, GraphicsLayer, Graphic, geometryEngine) {
 
-      const HEIGHT_BASE_MULTIPLIER = 25; 
-      const EXAGGERATION_AT_0_PROTECTION   = 3.0;   
-      const EXAGGERATION_AT_100_PROTECTION = 0.15;  
+      // Yükseklik farkını çok daha çarpıcı ve ilk bakışta anlaşılır hale getirmek için
+      // hem taban çarpanı hem de uç değerler belirgin şekilde büyütüldü.
+      const HEIGHT_BASE_MULTIPLIER = 42;
+      const EXAGGERATION_AT_0_PROTECTION   = 6.0;   // korumasız: çok yüksek, tehditkar bloklar
+      const EXAGGERATION_AT_100_PROTECTION = 0.06;  // tam koruma: neredeyse düz, güvenli zemin
+
+      // Kuvvet eğrisi: 1'den küçük üs, slider'ın daha ilk hareketlerinde bile
+      // yükseklikte gözle görülür büyük bir düşüş yaratır (ani ve etkileyici bir tepki).
+      const PROTECTION_EASING_POWER = 0.55;
 
       const ZOOM_SCALE = 2200;        
       const ZOOM_TILT = 72;            
@@ -354,8 +360,12 @@
               impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
               impactText.style.borderLeftColor = statusColor;
 
+              // Doğrusal yerine kuvvet eğrisiyle geçiş: koruma %0'dan biraz kıpırdadığı anda
+              // bile yükseklik gözle görülür şekilde düşüyor, böylece etki ilk bakışta net oluyor.
+              const t = avgProtection / 100;
+              const easedT = Math.pow(t, PROTECTION_EASING_POWER);
               const exaggeration = EXAGGERATION_AT_0_PROTECTION -
-                (avgProtection / 100) * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
+                easedT * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
               const totalScale = exaggeration * HEIGHT_BASE_MULTIPLIER;
 
               let activeRenderer = baseRenderer.clone();
