@@ -211,11 +211,11 @@
     <div class="section-label">Koruma Senaryosu</div>
     <div class="slider-group">
       <label>Kıyı Yapılaşma Kısıtı: <span id="rehexVal">0</span>%</label>
-      <input type="range" id="rehexSlider" min="0" max="100" value="0" step="5">
+      <input type="range" id="rehexSlider" min="0" max="100" value="0" step="1">
     </div>
     <div class="slider-group">
       <label>Işık Kirliliği Azaltma: <span id="lightVal">0</span>%</label>
-      <input type="range" id="lightSlider" min="0" max="100" value="0" step="5">
+      <input type="range" id="lightSlider" min="0" max="100" value="0" step="1">
     </div>
 
     <div class="stats-box">
@@ -239,13 +239,13 @@
 
       // Yükseklik farkını çok daha çarpıcı ve ilk bakışta anlaşılır hale getirmek için
       // hem taban çarpanı hem de uç değerler belirgin şekilde büyütüldü.
-      const HEIGHT_BASE_MULTIPLIER = 42;
+      const HEIGHT_BASE_MULTIPLIER = 84;
       const EXAGGERATION_AT_0_PROTECTION   = 6.0;   // korumasız: çok yüksek, tehditkar bloklar
       const EXAGGERATION_AT_100_PROTECTION = 0.06;  // tam koruma: neredeyse düz, güvenli zemin
 
       // Kuvvet eğrisi: 1'den küçük üs, slider'ın daha ilk hareketlerinde bile
       // yükseklikte gözle görülür büyük bir düşüş yaratır (ani ve etkileyici bir tepki).
-      const PROTECTION_EASING_POWER = 0.55;
+      // Smoothstep egrisi: hem baslangicta hem bitiste yumusak, ani sicramasiz bir "erime" saglar.
 
       const ZOOM_SCALE = 2200;        
       const ZOOM_TILT = 72;            
@@ -360,10 +360,10 @@
               impactText.innerHTML = `🐢 Tahmini Kurtarılan Yavru: <b>~${savedHatchlings}</b> (Verimlilik: %${Math.round(avgProtection)})`;
               impactText.style.borderLeftColor = statusColor;
 
-              // Doğrusal yerine kuvvet eğrisiyle geçiş: koruma %0'dan biraz kıpırdadığı anda
-              // bile yükseklik gözle görülür şekilde düşüyor, böylece etki ilk bakışta net oluyor.
+              // Smoothstep eğrisi (t²(3-2t)): ne başta ani bir sıçrama ne sonda ani bir kesilme var,
+              // yükseklik koruma arttıkça yumuşakça, akıcı bir şekilde eriyerek azalıyor.
               const t = avgProtection / 100;
-              const easedT = Math.pow(t, PROTECTION_EASING_POWER);
+              const easedT = t * t * (3 - 2 * t);
               const exaggeration = EXAGGERATION_AT_0_PROTECTION -
                 easedT * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
               const totalScale = exaggeration * HEIGHT_BASE_MULTIPLIER;
