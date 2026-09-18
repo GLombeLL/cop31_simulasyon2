@@ -65,12 +65,23 @@
     .slider-group input[type="range"]::-webkit-slider-runnable-track {
       height: 6px;
       border-radius: 3px;
-      background: rgba(255,255,255,0.15);
+      background: linear-gradient(
+        to right,
+        var(--thumb-color, #ef5350) 0%,
+        var(--thumb-color, #ef5350) var(--fill-percent, 0%),
+        rgba(255,255,255,0.15) var(--fill-percent, 0%),
+        rgba(255,255,255,0.15) 100%
+      );
     }
     .slider-group input[type="range"]::-moz-range-track {
       height: 6px;
       border-radius: 3px;
       background: rgba(255,255,255,0.15);
+    }
+    .slider-group input[type="range"]::-moz-range-progress {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--thumb-color, #ef5350);
     }
     .slider-group input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
@@ -239,7 +250,7 @@
 
       // Yükseklik farkını çok daha çarpıcı ve ilk bakışta anlaşılır hale getirmek için
       // hem taban çarpanı hem de uç değerler belirgin şekilde büyütüldü.
-      const HEIGHT_BASE_MULTIPLIER = 84;
+      const HEIGHT_BASE_MULTIPLIER = 130;
       const EXAGGERATION_AT_0_PROTECTION   = 6.0;   // korumasız: çok yüksek, tehditkar bloklar
       const EXAGGERATION_AT_100_PROTECTION = 0.06;  // tam koruma: neredeyse düz, güvenli zemin
 
@@ -328,6 +339,8 @@
               lightValDisplay.innerText = lVal;
               rehexSlider.style.setProperty("--thumb-color", getDynamicColor(rVal));
               lightSlider.style.setProperty("--thumb-color", getDynamicColor(lVal));
+              rehexSlider.style.setProperty("--fill-percent", rVal + "%");
+              lightSlider.style.setProperty("--fill-percent", lVal + "%");
 
               const avgProtection = (rVal + lVal) / 2; 
 
