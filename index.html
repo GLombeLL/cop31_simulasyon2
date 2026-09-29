@@ -234,7 +234,6 @@
       <div class="impact-metrics" id="impactText">
         🐢 Tahmini Kurtarılan Yavru: <b>~120</b> (Düşük Başarı)
       </div>
-      <div id="diagText" style="display:none;margin-top:8px;font-size:12px;color:#ef5350;"></div>
     </div>
   </div>
 
@@ -307,8 +306,6 @@
       const impactText = document.getElementById("impactText");
       const plajSelect = document.getElementById("plajSelect");
       const celebrationOverlay = document.getElementById("celebrationOverlay");
-      const diagText = document.getElementById("diagText");
-      function showDiag(msg) { diagText.style.display = "block"; diagText.innerHTML = msg; }
 
       function getDynamicColor(val) {
         if (val < 35) return "#ef5350";
@@ -317,55 +314,34 @@
       }
 
       let targetLayer = null;
-      let baseRenderer = null;
-      let riskField = "Risk_Skoru";
-
-      scene.load().catch((err) => {
-        console.error("[TEŞHİS] WebScene yüklenemedi:", err);
-        showDiag("❌ Kaynak WebScene olarak yüklenemedi: " + (err && err.message ? err.message : err));
-      });
 
       view.when(() => {
         scene.when(() => {
-          scene.allLayers.forEach((layer) => {
-            console.log("[TEŞHİS] Katman:", layer.title, "| tür:", layer.type);
-            if (layer.type === "feature") targetLayer = layer;
-          });
+          // Yeni sahnede birden fazla feature katmanı olabilir; hepsini al
+          const featureLayers = scene.allLayers.filter((l) => l.type === "feature").toArray();
+          if (featureLayers.length === 0) return;
 
-          if (!targetLayer) {
-            showDiag("❌ Sahnede 'feature' türünde katman bulunamadı. Kaynak öğe (Web Scene) katman yapısını kontrol et. Konsola katman listesi yazıldı.");
-            return;
-          }
+          Promise.all(featureLayers.map((l) => l.load())).then(() => {
+            const hasField = (l, name) => l.fields.some((f) => f.name === name);
 
-          targetLayer.load().then(() => {
-            const fieldNames = targetLayer.fields.map(f => f.name);
-            console.log("[TEŞHİS] Seçilen katman:", targetLayer.title, "| alanlar:", fieldNames);
-            console.log("[TEŞHİS] geometri türü:", targetLayer.geometryType, "| mevcut renderer:", targetLayer.renderer && targetLayer.renderer.type);
+            // Plaj listesi ve zoom için: Plaj_Adi alanı olan katman
+            targetLayer = featureLayers.find((l) => hasField(l, "Plaj_Adi")) || featureLayers[0];
 
-            // Risk alanı: tam ad yoksa adında "risk" geçen alanı kullan
-            const rf = fieldNames.includes("Risk_Skoru") ? "Risk_Skoru" : fieldNames.find(n => /risk/i.test(n));
-            if (rf) riskField = rf;
-            const missing = ["Plaj_ID", "Plaj_Adi"].filter(n => !fieldNames.includes(n));
-            if (!rf) missing.push("Risk_Skoru");
-            if (missing.length) {
-              showDiag("❌ Katmanda şu alanlar yok: " + missing.join(", ") + ". Mevcut alanlar konsola yazıldı: " + fieldNames.join(", "));
-            } else if (targetLayer.geometryType !== "polygon") {
-              showDiag("❌ Katman poligon değil (" + targetLayer.geometryType + "); yükselme yalnızca poligonlarda çalışır.");
-            } else {
-              // Risk değerleri hep 0/boşsa yükselme görünmez
-              targetLayer.queryFeatures({
-                where: "1=1",
-                outStatistics: [{ statisticType: "max", onStatisticField: riskField, outStatisticFieldName: "mx" }]
-              }).then((r) => {
-                const mx = r.features[0] && r.features[0].attributes.mx;
-                console.log("[TEŞHİS] " + riskField + " en büyük değer:", mx);
-                if (!mx) showDiag("⚠️ '" + riskField + "' alanı boş ya da 0, bu yüzden yükselme görünmüyor.");
-              }).catch((e) => console.warn("[TEŞHİS] istatistik sorgusu başarısız:", e));
-            }
-            // PERFORMANS: bu simülasyonda gerekmeyen işleri kapat
-            targetLayer.popupEnabled = false;
-            targetLayer.labelsVisible = false;
-            baseRenderer = targetLayer.renderer.clone();
+            // Yükselip alçalacak katmanlar: Risk_Skoru alanı olanların hepsi
+            const styled = featureLayers.filter((l) => hasField(l, "Risk_Skoru"));
+            if (styled.length === 0) styled.push(targetLayer);
+
+            // Filtre (plaj seçimi) Plaj_Adi alanı olan tüm katmanlara uygulanır
+            const filterable = featureLayers.filter((l) => hasField(l, "Plaj_Adi"));
+            const setFilter = (expr) => filterable.forEach((l) => { l.definitionExpression = expr; });
+
+            const baseRenderers = {};
+            styled.forEach((l) => {
+              // PERFORMANS: bu simülasyonda gerekmeyen işleri kapat
+              l.popupEnabled = false;
+              l.labelsVisible = false;
+              baseRenderers[l.id] = l.renderer.clone();
+            });
 
             const query = targetLayer.createQuery();
             query.where = "1=1";
@@ -435,31 +411,23 @@
                 easedT * (EXAGGERATION_AT_0_PROTECTION - EXAGGERATION_AT_100_PROTECTION);
               const totalScale = exaggeration * HEIGHT_BASE_MULTIPLIER;
 
-              // Sahnedeki renderer extrude (3D yükselme) sembolü içermeyebilir;
-              // bu yüzden yükselen poligon renderer'ını burada kendimiz kuruyoruz.
-              targetLayer.renderer = {
-                type: "simple",
-                symbol: {
-                  type: "polygon-3d",
-                  symbolLayers: [{
-                    type: "extrude",
-                    size: 1,
-                    material: { color: [239, 83, 80] }
-                  }]
-                },
-                visualVariables: [
+              styled.forEach((l) => {
+                const activeRenderer = baseRenderers[l.id].clone();
+                activeRenderer.visualVariables = [
                   {
                     type: "size",
-                    valueExpression: `$feature.${riskField} * ${totalScale}`,
-                    valueUnit: "meters"
+                    valueExpression: `$feature.Risk_Skoru * ${totalScale}`,
+                    target: "extrusion",
+                    unit: "meters"
                   },
                   {
                     type: "color",
                     valueExpression: `${avgProtection}`,
                     stops: COLOR_STOPS
                   }
-                ]
-              };
+                ];
+                l.renderer = activeRenderer;
+              });
             }
 
             updateLayerSimulation();
@@ -481,7 +449,7 @@
               highlightLayer.removeAll();
 
               if (selected === "__ALL__") {
-                targetLayer.definitionExpression = null;
+                setFilter(null);
                 view.goTo({
                   position: { longitude: OVERVIEW_LON, latitude: OVERVIEW_LAT, z: OVERVIEW_Z },
                   tilt: OVERVIEW_TILT,
@@ -500,7 +468,7 @@
               const fres = await targetLayer.queryFeatures(fq);
               if (fres.features.length === 0) return;
 
-              targetLayer.definitionExpression = `Plaj_Adi = '${safeName}'`;
+              setFilter(`Plaj_Adi = '${safeName}'`);
 
               const geoms = fres.features.map(f => f.geometry);
               let unionGeom = geoms.length > 1 ? geometryEngine.union(geoms) : geoms[0];
